@@ -59,6 +59,11 @@
     return self;
 }
 
+- (void) dealloc
+{
+    [self closeFiles];
+}
+
 - (void) loadView
 {
     self.view = [[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]];
@@ -136,7 +141,7 @@
 - (void) viewWillDisappear:(BOOL)animated
 {
     [super viewWillDisappear:animated];    
-    [self closeFiles];
+    //[self closeFiles];
 }
 
 - (void) closeFiles
@@ -264,7 +269,8 @@
                          block:^(id result)
     {
         FileViewController *p = weakSelf;
-        if (p && p.isViewLoaded && p.view.window) {
+        //if (p && p.isViewLoaded && p.view.window) {
+        if (p) {
             [p updateDownloadStatus:result];
         }
     }];

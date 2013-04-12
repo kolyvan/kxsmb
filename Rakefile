@@ -136,6 +136,7 @@ IOS_SMB_ARGS = [
 'ac_cv_header_execinfo_h=no',
 'ac_cv_header_rpcsvc_ypclnt_h=no',
 'ac_cv_file__proc_sys_kernel_core_pattern=no',
+'ac_cv_func_fdatasync=no',
 'libreplace_cv_HAVE_GETADDRINFO=no',
 'samba_cv_SYSCONF_SC_NPROCESSORS_ONLN=no',
 'samba_cv_big_endian=no',

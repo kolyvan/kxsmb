@@ -47,6 +47,7 @@ typedef enum {
     KxSMBErrorPathIsDir,
     KxSMBErrorWorkgroupNotFound,
     KxSMBErrorShareDoesNotExist,
+    KxSMBErrorItemAlreadyExists,
 
 } KxSMBError;
 
@@ -80,9 +81,12 @@ typedef void (^KxSMBBlock)(id result);
 @property(readonly, nonatomic, strong) KxSMBItemStat *stat;
 @end
 
+@class KxSMBItemFile;
+
 @interface KxSMBItemTree : KxSMBItem
 - (void) fetchItems: (KxSMBBlock) block;
 - (id) fetchItems;
+- (id) createFileWithName:(NSString *) name;
 @end
 
 @interface KxSMBItemFile : KxSMBItem
@@ -97,6 +101,9 @@ typedef void (^KxSMBBlock)(id result);
 
 - (void)seekToFileOffset:(off_t)offset whence:(NSInteger)whence block:(KxSMBBlock) block;
 - (id)seekToFileOffset:(off_t)offset whence:(NSInteger)whence;
+
+- (void)writeData:(NSData *)data block:(KxSMBBlock) block;
+- (id)writeData:(NSData *)data;
 
 @end
 
@@ -123,5 +130,7 @@ typedef void (^KxSMBBlock)(id result);
 
 - (void) fetchAtPath: (NSString *) path block: (KxSMBBlock) block;
 - (id) fetchAtPath: (NSString *) path;
+
+- (id) createFileAtPath:(NSString *) path;
 
 @end

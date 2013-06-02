@@ -53,6 +53,8 @@ static NSString * KxSMBErrorMessage (KxSMBError errorCode)
         case KxSMBErrorPathIsDir:           return NSLocalizedString(@"SMB Is a directory", nil);
         case KxSMBErrorWorkgroupNotFound:   return NSLocalizedString(@"SMB Workgroup not found", nil);
         case KxSMBErrorShareDoesNotExist:   return NSLocalizedString(@"SMB Share does not exist", nil);
+        case KxSMBErrorItemAlreadyExists:   return NSLocalizedString(@"SMB Item already exists", nil);
+
     }
 }
 
@@ -97,6 +99,7 @@ static KxSMBError errnoToSMBErr(int err)
         case EISDIR:    return KxSMBErrorPathIsDir;
         case EPERM:     return KxSMBErrorWorkgroupNotFound;
         case ENODEV:    return KxSMBErrorShareDoesNotExist;
+        case EEXIST:    return KxSMBErrorItemAlreadyExists;
         default:        return KxSMBErrorUnknown;
     }    
 }
@@ -484,6 +487,20 @@ static KxSMBProvider *gSmbProvider;
     return result;
 }
 
+- (id) createFileAtPath:(NSString *) path
+{
+    NSParameterAssert(path.length);
+    
+    if (![path hasPrefix:@"smb://"]) {
+        return mkKxSMBError(KxSMBErrorInvalidProtocol,
+                            NSLocalizedString(@"Path:%@", nil), path);
+    }
+    
+    return [[KxSMBItemFile alloc] initWithType:KxSMBItemTypeFile
+                                          path:path
+                                          stat:nil];
+}
+
 @end
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -516,6 +533,21 @@ static KxSMBProvider *gSmbProvider;
         result = [KxSMBProvider fetchTreeAtPath:path];
     }];
     return result;
+}
+
+- (id) createFileWithName:(NSString *) name
+{
+    NSParameterAssert(name.length);
+    
+    if (self.type != KxSMBItemTypeDir ||
+        self.type != KxSMBItemTypeFileShare )
+    {
+        return mkKxSMBError(KxSMBErrorPathIsNotDir, nil);
+    }
+    
+    return [[KxSMBItemFile alloc] initWithType:KxSMBItemTypeFile
+                                          path:[self.path stringByAppendingPathComponent:name]
+                                          stat:nil];
 }
 
 @end
@@ -555,6 +587,30 @@ static KxSMBProvider *gSmbProvider;
                                            _path.UTF8String,
                                            O_RDONLY,
                                            0);
+    
+    if (!_file) {
+        [KxSMBProvider closeSmbContext:_context];
+        _context = NULL;
+        const int err = errno;
+        return mkKxSMBError(errnoToSMBErr(err),
+                            NSLocalizedString(@"Unable open file:%@ (errno:%d)", nil), _path, err);
+    }
+    
+    return nil;
+}
+
+- (NSError *) createFile
+{
+    _context = [KxSMBProvider openSmbContext];
+    if (!_context) {
+        const int err = errno;
+        return mkKxSMBError(errnoToSMBErr(err),
+                            NSLocalizedString(@"Unable init SMB context (errno:%d)", nil), err);
+    }
+    
+    _file = smbc_getFunctionCreat(_context)(_context,
+                                           _path.UTF8String,
+                                           O_WRONLY | O_CREAT); // O_TRUNC O_EXCL ? 
     
     if (!_file) {
         [KxSMBProvider closeSmbContext:_context];
@@ -665,6 +721,38 @@ static KxSMBProvider *gSmbProvider;
                             NSLocalizedString(@"Unable seek to file:%@ (errno:%d)", nil), _path, errno);
     }
     return @(r);
+}
+
+- (id)writeData:(NSData *)data
+{
+    if (!_file) {
+        
+        NSError *error = [self createFile];
+        if (error) return error;
+    }
+
+    smbc_write_fn writeFn = smbc_getFunctionWrite(_context);
+    NSInteger bytesToWrite = data.length;
+    const Byte *bytes = data.bytes;
+    
+    while (bytesToWrite > 0) {
+        
+        int r = writeFn(_context, _file, bytes, bytesToWrite);
+        if (r == 0)
+            break;
+        
+        if (r < 0) {
+            
+            const int err = errno;
+            return mkKxSMBError(errnoToSMBErr(err),
+                                NSLocalizedString(@"Unable write file:%@ (errno:%d)", nil), _path, err);
+        }
+
+        bytesToWrite -= r;
+        bytes += r;
+    }
+    
+    return @(data.length - bytesToWrite);
 }
 
 @end
@@ -795,6 +883,41 @@ static KxSMBProvider *gSmbProvider;
         result = [p seekToFileOffset:offset whence:whence];
     }];
     return result;
+}
+
+- (void)writeData:(NSData *)data block:(KxSMBBlock) block
+{
+    NSParameterAssert(block);
+    
+    if (!_impl)
+        _impl = [[KxSMBFileImpl alloc] initWithPath:self.path];
+    
+    KxSMBFileImpl *p = _impl;
+    KxSMBProvider *provider = [KxSMBProvider sharedSmbProvider];
+    [provider dispatchAsync:^{
+        
+        id result = [p writeData:data];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            block(result);
+        });
+    }];
+}
+
+- (id)writeData:(NSData *)data
+{
+    __block id result = nil;
+    
+    if (!_impl)
+        _impl = [[KxSMBFileImpl alloc] initWithPath:self.path];
+    
+    KxSMBFileImpl *p = _impl;
+    KxSMBProvider *provider = [KxSMBProvider sharedSmbProvider];
+    [provider dispatchSync:^{
+        
+        result = [p writeData:data];
+    }];
+    return result;
+
 }
 
 @end

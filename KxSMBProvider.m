@@ -54,6 +54,7 @@ static NSString * KxSMBErrorMessage (KxSMBError errorCode)
         case KxSMBErrorWorkgroupNotFound:   return NSLocalizedString(@"SMB Workgroup not found", nil);
         case KxSMBErrorShareDoesNotExist:   return NSLocalizedString(@"SMB Share does not exist", nil);
         case KxSMBErrorItemAlreadyExists:   return NSLocalizedString(@"SMB Item already exists", nil);
+        case KxSMBErrorDirNotEmpty:         return NSLocalizedString(@"SMB Directory not empty", nil);
 
     }
 }
@@ -100,6 +101,7 @@ static KxSMBError errnoToSMBErr(int err)
         case EPERM:     return KxSMBErrorWorkgroupNotFound;
         case ENODEV:    return KxSMBErrorShareDoesNotExist;
         case EEXIST:    return KxSMBErrorItemAlreadyExists;
+        case ENOTEMPTY: return KxSMBErrorDirNotEmpty;
         default:        return KxSMBErrorUnknown;
     }    
 }
@@ -461,15 +463,30 @@ static KxSMBProvider *gSmbProvider;
         return mkKxSMBError(errnoToSMBErr(err),
                             NSLocalizedString(@"Unable init SMB context (errno:%d)", nil), err);
     }
-    
-    id result;
+
+    id result;    
     
     int r = smbc_getFunctionUnlink(smbContext)(smbContext, path.UTF8String);
     if (r < 0) {
         
-        const int err = errno;
-        result =  mkKxSMBError(errnoToSMBErr(err),
-                               NSLocalizedString(@"Unable unlink file:%@ (errno:%d)", nil), path, err);
+        int err = errno;
+        if (err == EISDIR) {
+            
+            r = smbc_getFunctionRmdir(smbContext)(smbContext, path.UTF8String);
+            if (r < 0) {
+                
+                err = errno;
+                result =  mkKxSMBError(errnoToSMBErr(err),
+                                       NSLocalizedString(@"Unable rmdir file:%@ (errno:%d)", nil), path, err);
+            }
+            
+        } else {
+            
+            result =  mkKxSMBError(errnoToSMBErr(err),
+                                   NSLocalizedString(@"Unable unlink file:%@ (errno:%d)", nil), path, err);
+            
+        }
+        
     }
     
     [self closeSmbContext:smbContext];

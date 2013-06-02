@@ -48,6 +48,7 @@ typedef enum {
     KxSMBErrorWorkgroupNotFound,
     KxSMBErrorShareDoesNotExist,
     KxSMBErrorItemAlreadyExists,
+    KxSMBErrorDirNotEmpty,
 
 } KxSMBError;
 

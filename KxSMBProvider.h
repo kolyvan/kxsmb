@@ -87,6 +87,7 @@ typedef void (^KxSMBBlock)(id result);
 @interface KxSMBItemTree : KxSMBItem
 - (void) fetchItems: (KxSMBBlock) block;
 - (id) fetchItems;
+- (void) createFileWithName:(NSString *) name block: (KxSMBBlock) block;
 - (id) createFileWithName:(NSString *) name;
 - (void) removeWithName: (NSString *) name block: (KxSMBBlock) block;
 - (id) removeWithName: (NSString *) name;
@@ -134,6 +135,7 @@ typedef void (^KxSMBBlock)(id result);
 - (void) fetchAtPath: (NSString *) path block: (KxSMBBlock) block;
 - (id) fetchAtPath: (NSString *) path;
 
+- (void) createFileAtPath:(NSString *) path block: (KxSMBBlock) block;
 - (id) createFileAtPath:(NSString *) path;
 
 - (void) createFolderAtPath:(NSString *) path block: (KxSMBBlock) block;

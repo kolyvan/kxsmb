@@ -188,6 +188,14 @@ static void my_smbc_get_auth_data_fn(const char *srv,
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
+
+@interface KxSMBItemFile()
+- (id) createFile;
+@end
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
 static KxSMBProvider *gSmbProvider;
 
 @interface KxSMBProvider ()
@@ -537,6 +545,25 @@ static KxSMBProvider *gSmbProvider;
     return result;
 }
 
++ (id) createFileAtPath:(NSString *) path
+{
+    NSParameterAssert(path);
+    
+    if (![path hasPrefix:@"smb://"]) {
+        return mkKxSMBError(KxSMBErrorInvalidProtocol,
+                            NSLocalizedString(@"Path:%@", nil), path);
+    }
+    
+    KxSMBItemFile *itemFile =  [[KxSMBItemFile alloc] initWithType:KxSMBItemTypeFile
+                                                              path:path
+                                                              stat:nil];
+    id result = [itemFile createFile];
+    if ([result isKindOfClass:[NSError class]]) {
+        return result;
+    }
+    return itemFile;
+}
+
 #pragma mark - internal methods
 
 - (void) dispatchSync: (dispatch_block_t) block
@@ -578,18 +605,30 @@ static KxSMBProvider *gSmbProvider;
     return result;
 }
 
+- (void) createFileAtPath:(NSString *) path block: (KxSMBBlock) block
+{
+    NSParameterAssert(path);
+    NSParameterAssert(block);
+    
+    dispatch_async(_dispatchQueue, ^{
+        
+        id result = [KxSMBProvider createFileAtPath:path];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            block(result);
+        });
+    });
+}
+
 - (id) createFileAtPath:(NSString *) path
 {
-    NSParameterAssert(path.length);
+    NSParameterAssert(path);
     
-    if (![path hasPrefix:@"smb://"]) {
-        return mkKxSMBError(KxSMBErrorInvalidProtocol,
-                            NSLocalizedString(@"Path:%@", nil), path);
-    }
-    
-    return [[KxSMBItemFile alloc] initWithType:KxSMBItemTypeFile
-                                          path:path
-                                          stat:nil];
+    __block id result = nil;
+    dispatch_sync(_dispatchQueue, ^{
+        
+        result = [KxSMBProvider createFileAtPath:path];
+    });
+    return result;
 }
 
 - (void) removeAtPath: (NSString *) path block: (KxSMBBlock) block
@@ -631,7 +670,6 @@ static KxSMBProvider *gSmbProvider;
         });
     });
 }
-
 
 - (id) createFolderAtPath:(NSString *) path
 {
@@ -677,6 +715,21 @@ static KxSMBProvider *gSmbProvider;
         result = [KxSMBProvider fetchTreeAtPath:path];
     }];
     return result;
+}
+
+- (void) createFileWithName:(NSString *) name block: (KxSMBBlock) block
+{
+    NSParameterAssert(name.length);
+    
+    if (self.type != KxSMBItemTypeDir ||
+        self.type != KxSMBItemTypeFileShare )
+    {
+        block(mkKxSMBError(KxSMBErrorPathIsNotDir, nil));
+        return;
+    }
+    
+    [[KxSMBProvider sharedSmbProvider] createFileAtPath:[self pathWithName:name] block:block];
+
 }
 
 - (id) createFileWithName:(NSString *) name
@@ -1092,6 +1145,15 @@ static KxSMBProvider *gSmbProvider;
     }];
     return result;
 
+}
+
+#pragma mark - internal
+
+- (id) createFile
+{
+    if (!_impl)
+        _impl = [[KxSMBFileImpl alloc] initWithPath:self.path];
+    return [_impl createFile];
 }
 
 @end

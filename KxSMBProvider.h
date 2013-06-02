@@ -135,6 +135,9 @@ typedef void (^KxSMBBlock)(id result);
 
 - (id) createFileAtPath:(NSString *) path;
 
+- (void) createFolderAtPath:(NSString *) path block: (KxSMBBlock) block;
+- (id) createFolderAtPath:(NSString *) path;
+
 - (void) removeAtPath: (NSString *) path block: (KxSMBBlock) block;
 - (id) removeAtPath: (NSString *) path;
 

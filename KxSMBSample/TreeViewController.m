@@ -77,6 +77,10 @@
     
     self.navigationItem.rightBarButtonItems =
     @[
+      [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd
+                                                    target:self
+                                                    action:@selector(actionMkDir:)],
+      
       [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemSave
                                                     target:self
                                                     action:@selector(actionCopyFile:)],
@@ -237,6 +241,31 @@
         
         NSLog(@"%@", result);
     }    
+}
+
+- (void) actionMkDir:(id)sender
+{
+    NSString *path = _path;
+    if (![path hasSuffix:@"/"]) {
+        path = [path stringByAppendingString:@"/"];
+    }
+    path = [path stringByAppendingFormat:@"NewFolder"];
+    
+    KxSMBProvider *provider = [KxSMBProvider sharedSmbProvider];
+    id result = [provider createFolderAtPath:path];
+    if ([result isKindOfClass:[KxSMBItemTree class]]) {
+        
+        NSMutableArray *ma = [_items mutableCopy];
+        [ma addObject:result];
+        _items = [ma copy];
+        
+        [_tableView insertRowsAtIndexPaths:@[[NSIndexPath indexPathForRow:_items.count-1 inSection:0]]
+                          withRowAnimation:UITableViewRowAnimationAutomatic];
+        
+    } else {
+        
+        NSLog(@"%@", result);
+    }
 }
 
 #pragma mark - Table view data source

@@ -476,6 +476,50 @@ static KxSMBProvider *gSmbProvider;
     return result;
 }
 
++ (id) createFolderAtPath: (NSString *) path
+{
+    NSParameterAssert(path);
+    
+    if (![path hasPrefix:@"smb://"]) {
+        return mkKxSMBError(KxSMBErrorInvalidProtocol,
+                            NSLocalizedString(@"Path:%@", nil), path);
+    }
+    
+    SMBCCTX *smbContext = [self openSmbContext];
+    if (!smbContext) {
+        const int err = errno;
+        return mkKxSMBError(errnoToSMBErr(err),
+                            NSLocalizedString(@"Unable init SMB context (errno:%d)", nil), err);
+    }
+    
+    id result;
+    
+    int r = smbc_getFunctionMkdir(smbContext)(smbContext, path.UTF8String, 0);
+    if (r < 0) {
+        
+        const int err = errno;
+        result =  mkKxSMBError(errnoToSMBErr(err),
+                               NSLocalizedString(@"Unable mkdir:%@ (errno:%d)", nil), path, err);
+        
+    } else {
+        
+        id stat = [self fetchStat:smbContext atPath: path];
+        if ([stat isKindOfClass:[KxSMBItemStat class]]) {
+            
+            result = [[KxSMBItemTree alloc] initWithType:KxSMBItemTypeDir
+                                                    path:path
+                                                    stat:stat];
+            
+        } else {
+            
+            result = stat;
+        }
+    }
+    
+    [self closeSmbContext:smbContext];
+    return result;
+}
+
 #pragma mark - internal methods
 
 - (void) dispatchSync: (dispatch_block_t) block
@@ -553,6 +597,33 @@ static KxSMBProvider *gSmbProvider;
     dispatch_sync(_dispatchQueue, ^{
         
         result = [KxSMBProvider removeAtPath:path];
+    });
+    return result;
+}
+
+- (void) createFolderAtPath:(NSString *) path block: (KxSMBBlock) block
+{
+    NSParameterAssert(path);
+    NSParameterAssert(block);
+    
+    dispatch_async(_dispatchQueue, ^{
+        
+        id result = [KxSMBProvider createFolderAtPath:path];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            block(result);
+        });
+    });
+}
+
+
+- (id) createFolderAtPath:(NSString *) path
+{
+    NSParameterAssert(path);
+    
+    __block id result = nil;
+    dispatch_sync(_dispatchQueue, ^{
+        
+        result = [KxSMBProvider createFolderAtPath:path];
     });
     return result;
 }

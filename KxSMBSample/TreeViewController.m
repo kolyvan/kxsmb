@@ -127,8 +127,6 @@
                                                                             target:nil
                                                                             action:nil];
     
-    
-    
     _items = nil;
     [_tableView reloadData];
     [self updateStatus:[NSString stringWithFormat: @"Fetching %@..", path]];
@@ -230,7 +228,10 @@
         [itemFile writeData:data block:^(id result) {
            
             NSLog(@"completed:%@", result);
-        }];
+            if (![result isKindOfClass:[NSError class]]) {
+                [self reloadPath];
+            }
+         }];
         
     } else {
         
@@ -297,5 +298,24 @@
     }
 }
 
+- (UITableViewCellEditingStyle)tableView:(UITableView *)tableView editingStyleForRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    return UITableViewCellEditingStyleDelete;
+}
+
+- (void)tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    if (editingStyle == UITableViewCellEditingStyleDelete) {
+        
+        KxSMBItem *item = _items[indexPath.row];
+        [[KxSMBProvider sharedSmbProvider] removeAtPath:item.path block:^(id result) {
+            
+            NSLog(@"completed:%@", result);
+            if (![result isKindOfClass:[NSError class]]) {
+                [self reloadPath];
+            }
+        }];        
+    }
+}
 
 @end

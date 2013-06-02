@@ -446,6 +446,36 @@ static KxSMBProvider *gSmbProvider;
     return result;
 }
 
++ (id) removeAtPath: (NSString *) path
+{
+    NSParameterAssert(path);
+    
+    if (![path hasPrefix:@"smb://"]) {
+        return mkKxSMBError(KxSMBErrorInvalidProtocol,
+                            NSLocalizedString(@"Path:%@", nil), path);
+    }
+    
+    SMBCCTX *smbContext = [self openSmbContext];
+    if (!smbContext) {
+        const int err = errno;
+        return mkKxSMBError(errnoToSMBErr(err),
+                            NSLocalizedString(@"Unable init SMB context (errno:%d)", nil), err);
+    }
+    
+    id result;
+    
+    int r = smbc_getFunctionUnlink(smbContext)(smbContext, path.UTF8String);
+    if (r < 0) {
+        
+        const int err = errno;
+        result =  mkKxSMBError(errnoToSMBErr(err),
+                               NSLocalizedString(@"Unable unlink file:%@ (errno:%d)", nil), path, err);
+    }
+    
+    [self closeSmbContext:smbContext];
+    return result;
+}
+
 #pragma mark - internal methods
 
 - (void) dispatchSync: (dispatch_block_t) block
@@ -501,6 +531,32 @@ static KxSMBProvider *gSmbProvider;
                                           stat:nil];
 }
 
+- (void) removeAtPath: (NSString *) path block: (KxSMBBlock) block
+{
+    NSParameterAssert(path);
+    NSParameterAssert(block);
+    
+    dispatch_async(_dispatchQueue, ^{
+        
+        id result = [KxSMBProvider removeAtPath:path];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            block(result);
+        });
+    });
+}
+
+- (id) removeAtPath: (NSString *) path
+{
+    NSParameterAssert(path);
+    
+    __block id result = nil;
+    dispatch_sync(_dispatchQueue, ^{
+        
+        result = [KxSMBProvider removeAtPath:path];
+    });
+    return result;
+}
+
 @end
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -545,9 +601,39 @@ static KxSMBProvider *gSmbProvider;
         return mkKxSMBError(KxSMBErrorPathIsNotDir, nil);
     }
     
-    return [[KxSMBItemFile alloc] initWithType:KxSMBItemTypeFile
-                                          path:[self.path stringByAppendingPathComponent:name]
-                                          stat:nil];
+    return [[KxSMBProvider sharedSmbProvider] createFileAtPath:[self pathWithName:name]];
+}
+
+- (void) removeWithName: (NSString *) name block: (KxSMBBlock) block
+{
+    if (self.type != KxSMBItemTypeDir ||
+        self.type != KxSMBItemTypeFileShare )
+    {
+        block(mkKxSMBError(KxSMBErrorPathIsNotDir, nil));
+        return;
+    }
+    
+    [[KxSMBProvider sharedSmbProvider] removeAtPath:[self pathWithName:name] block:block];
+}
+
+- (id) removeWithName: (NSString *) name
+{
+    if (self.type != KxSMBItemTypeDir ||
+        self.type != KxSMBItemTypeFileShare )
+    {
+        return mkKxSMBError(KxSMBErrorPathIsNotDir, nil);
+    }
+    
+    return [[KxSMBProvider sharedSmbProvider] removeAtPath:[self pathWithName:name]];
+}
+
+- (NSString *) pathWithName:(NSString *)name
+{
+    NSString *path = self.path;
+    if (![path hasSuffix:@"/"]) {
+        path = [path stringByAppendingString:@"/"];
+    }
+    return [path stringByAppendingString:name];
 }
 
 @end

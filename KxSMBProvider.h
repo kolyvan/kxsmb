@@ -145,3 +145,9 @@ typedef void (^KxSMBBlock)(id result);
 - (id) removeAtPath: (NSString *) path;
 
 @end
+
+@interface NSString (KxSMB)
+
+- (NSString *) stringByAppendingSMBPathComponent: (NSString *) aString;
+
+@end

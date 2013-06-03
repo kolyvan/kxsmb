@@ -728,7 +728,9 @@ static KxSMBProvider *gSmbProvider;
         return;
     }
     
-    [[KxSMBProvider sharedSmbProvider] createFileAtPath:[self pathWithName:name] overwrite:overwrite block:block];
+    [[KxSMBProvider sharedSmbProvider] createFileAtPath:[self.path stringByAppendingSMBPathComponent:name]
+                                              overwrite:overwrite
+                                                  block:block];
 
 }
 
@@ -742,7 +744,8 @@ static KxSMBProvider *gSmbProvider;
         return mkKxSMBError(KxSMBErrorPathIsNotDir, nil);
     }
     
-    return [[KxSMBProvider sharedSmbProvider] createFileAtPath:[self pathWithName:name] overwrite:overwrite];
+    return [[KxSMBProvider sharedSmbProvider] createFileAtPath:[self.path stringByAppendingSMBPathComponent:name]
+                                                     overwrite:overwrite];
 }
 
 - (void) removeWithName: (NSString *) name block: (KxSMBBlock) block
@@ -754,7 +757,8 @@ static KxSMBProvider *gSmbProvider;
         return;
     }
     
-    [[KxSMBProvider sharedSmbProvider] removeAtPath:[self pathWithName:name] block:block];
+    [[KxSMBProvider sharedSmbProvider] removeAtPath:[self.path stringByAppendingSMBPathComponent:name]
+                                              block:block];
 }
 
 - (id) removeWithName: (NSString *) name
@@ -765,16 +769,7 @@ static KxSMBProvider *gSmbProvider;
         return mkKxSMBError(KxSMBErrorPathIsNotDir, nil);
     }
     
-    return [[KxSMBProvider sharedSmbProvider] removeAtPath:[self pathWithName:name]];
-}
-
-- (NSString *) pathWithName:(NSString *)name
-{
-    NSString *path = self.path;
-    if (![path hasSuffix:@"/"]) {
-        path = [path stringByAppendingString:@"/"];
-    }
-    return [path stringByAppendingString:name];
+    return [[KxSMBProvider sharedSmbProvider] removeAtPath:[self.path stringByAppendingSMBPathComponent:name]];
 }
 
 @end
@@ -1193,3 +1188,22 @@ static void my_smbc_get_auth_data_fn(const char *srv,
     
     NSLog(@"smb get auth for %s/%s -> %s/%s:%s", srv, shr, workgroup, username, password);
 }
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+@implementation NSString (KxSMB)
+
+// unfortunately, [NSString stringByAppendingPathComponent] brokes smb:// pathes
+// so need to use custom version
+
+- (NSString *) stringByAppendingSMBPathComponent: (NSString *) aString
+{
+    NSString *path = self;
+    if (![path hasSuffix:@"/"]) {
+        path = [path stringByAppendingString:@"/"];
+    }
+    return [path stringByAppendingString:aString];
+}
+
+@end

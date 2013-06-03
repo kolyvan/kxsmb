@@ -216,11 +216,8 @@
 
 - (void) actionCopyFile:(id)sender
 {
-    NSString *path = _path;
-    if (![path hasSuffix:@"/"]) {
-        path = [path stringByAppendingString:@"/"];
-    }
-    path = [path stringByAppendingFormat:@"%d.tmp", (NSUInteger)[NSDate timeIntervalSinceReferenceDate]];
+    NSString *name = [NSString stringWithFormat:@"%d.tmp", (NSUInteger)[NSDate timeIntervalSinceReferenceDate]];
+    NSString *path = [_path stringByAppendingSMBPathComponent:name];
     
     KxSMBProvider *provider = [KxSMBProvider sharedSmbProvider];
     [provider createFileAtPath:path overwrite:YES block:^(id result) {
@@ -247,12 +244,7 @@
 
 - (void) actionMkDir:(id)sender
 {
-    NSString *path = _path;
-    if (![path hasSuffix:@"/"]) {
-        path = [path stringByAppendingString:@"/"];
-    }
-    path = [path stringByAppendingFormat:@"NewFolder"];
-    
+    NSString *path = [_path stringByAppendingSMBPathComponent:@"NewFolder"];
     KxSMBProvider *provider = [KxSMBProvider sharedSmbProvider];
     id result = [provider createFolderAtPath:path];
     if ([result isKindOfClass:[KxSMBItemTree class]]) {

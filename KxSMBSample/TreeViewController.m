@@ -223,7 +223,7 @@
     path = [path stringByAppendingFormat:@"%d.tmp", (NSUInteger)[NSDate timeIntervalSinceReferenceDate]];
     
     KxSMBProvider *provider = [KxSMBProvider sharedSmbProvider];
-    [provider createFileAtPath:path block:^(id result) {
+    [provider createFileAtPath:path overwrite:YES block:^(id result) {
         
         if ([result isKindOfClass:[KxSMBItemFile class]]) {
             

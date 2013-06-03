@@ -190,7 +190,7 @@ static void my_smbc_get_auth_data_fn(const char *srv,
 
 
 @interface KxSMBItemFile()
-- (id) createFile;
+- (id) createFile:(BOOL)overwrite;
 @end
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -545,7 +545,7 @@ static KxSMBProvider *gSmbProvider;
     return result;
 }
 
-+ (id) createFileAtPath:(NSString *) path
++ (id) createFileAtPath:(NSString *) path overwrite:(BOOL)overwrite
 {
     NSParameterAssert(path);
     
@@ -557,7 +557,7 @@ static KxSMBProvider *gSmbProvider;
     KxSMBItemFile *itemFile =  [[KxSMBItemFile alloc] initWithType:KxSMBItemTypeFile
                                                               path:path
                                                               stat:nil];
-    id result = [itemFile createFile];
+    id result = [itemFile createFile:overwrite];
     if ([result isKindOfClass:[NSError class]]) {
         return result;
     }
@@ -605,28 +605,28 @@ static KxSMBProvider *gSmbProvider;
     return result;
 }
 
-- (void) createFileAtPath:(NSString *) path block: (KxSMBBlock) block
+- (void) createFileAtPath:(NSString *) path overwrite:(BOOL)overwrite block:(KxSMBBlock) block
 {
     NSParameterAssert(path);
     NSParameterAssert(block);
     
     dispatch_async(_dispatchQueue, ^{
         
-        id result = [KxSMBProvider createFileAtPath:path];
+        id result = [KxSMBProvider createFileAtPath:path overwrite:overwrite];
         dispatch_async(dispatch_get_main_queue(), ^{
             block(result);
         });
     });
 }
 
-- (id) createFileAtPath:(NSString *) path
+- (id) createFileAtPath:(NSString *) path overwrite:(BOOL)overwrite
 {
     NSParameterAssert(path);
     
     __block id result = nil;
     dispatch_sync(_dispatchQueue, ^{
         
-        result = [KxSMBProvider createFileAtPath:path];
+        result = [KxSMBProvider createFileAtPath:path overwrite:overwrite];
     });
     return result;
 }
@@ -717,7 +717,7 @@ static KxSMBProvider *gSmbProvider;
     return result;
 }
 
-- (void) createFileWithName:(NSString *) name block: (KxSMBBlock) block
+- (void) createFileWithName:(NSString *) name overwrite:(BOOL)overwrite block: (KxSMBBlock) block
 {
     NSParameterAssert(name.length);
     
@@ -728,11 +728,11 @@ static KxSMBProvider *gSmbProvider;
         return;
     }
     
-    [[KxSMBProvider sharedSmbProvider] createFileAtPath:[self pathWithName:name] block:block];
+    [[KxSMBProvider sharedSmbProvider] createFileAtPath:[self pathWithName:name] overwrite:overwrite block:block];
 
 }
 
-- (id) createFileWithName:(NSString *) name
+- (id) createFileWithName:(NSString *) name overwrite:(BOOL)overwrite
 {
     NSParameterAssert(name.length);
     
@@ -742,7 +742,7 @@ static KxSMBProvider *gSmbProvider;
         return mkKxSMBError(KxSMBErrorPathIsNotDir, nil);
     }
     
-    return [[KxSMBProvider sharedSmbProvider] createFileAtPath:[self pathWithName:name]];
+    return [[KxSMBProvider sharedSmbProvider] createFileAtPath:[self pathWithName:name] overwrite:overwrite];
 }
 
 - (void) removeWithName: (NSString *) name block: (KxSMBBlock) block
@@ -826,7 +826,7 @@ static KxSMBProvider *gSmbProvider;
     return nil;
 }
 
-- (NSError *) createFile
+- (NSError *) createFile:(BOOL)overwrite
 {
     _context = [KxSMBProvider openSmbContext];
     if (!_context) {
@@ -837,7 +837,7 @@ static KxSMBProvider *gSmbProvider;
     
     _file = smbc_getFunctionCreat(_context)(_context,
                                            _path.UTF8String,
-                                           O_WRONLY | O_CREAT); // O_TRUNC O_EXCL ? 
+                                            O_WRONLY|O_CREAT|(overwrite ? O_TRUNC : O_EXCL));
     
     if (!_file) {
         [KxSMBProvider closeSmbContext:_context];
@@ -954,7 +954,7 @@ static KxSMBProvider *gSmbProvider;
 {
     if (!_file) {
         
-        NSError *error = [self createFile];
+        NSError *error = [self createFile:NO];
         if (error) return error;
     }
 
@@ -1149,11 +1149,11 @@ static KxSMBProvider *gSmbProvider;
 
 #pragma mark - internal
 
-- (id) createFile
+- (id) createFile:(BOOL)overwrite
 {
     if (!_impl)
         _impl = [[KxSMBFileImpl alloc] initWithPath:self.path];
-    return [_impl createFile];
+    return [_impl createFile:overwrite];
 }
 
 @end

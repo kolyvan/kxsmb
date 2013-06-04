@@ -154,6 +154,10 @@ typedef void (^KxSMBBlock)(id result);
                smbPath:(NSString *)smbPath
              overwrite:(BOOL)overwrite
                  block:(KxSMBBlock)block;
+
+- (void) removeFolderAtPath:(NSString *) path
+                      block:(KxSMBBlock)block;
+
 @end
 
 @interface NSString (KxSMB)

@@ -970,6 +970,35 @@ static KxSMBProvider *gSmbProvider;
     }
 }
 
+
++ (void) removeSMBItems:(NSArray *)smbItems
+                  block:(KxSMBBlock)block
+{
+    KxSMBItem *item = smbItems[0];
+    if (smbItems.count > 1) {
+        smbItems = [smbItems subarrayWithRange:NSMakeRange(1, smbItems.count - 1)];
+    } else {
+        smbItems = nil;
+    }
+    
+    KxSMBProvider *provider = [KxSMBProvider sharedSmbProvider];
+    [provider removeAtPath:item.path block:^(id result) {
+      
+        if ([result isKindOfClass:[NSError class]]) {
+            
+            block(result);
+            
+        } else if (smbItems.count) {
+            
+            [self removeSMBItems:smbItems block:block];
+            
+        } else {
+            
+            block(@(YES));
+        }
+    }];
+}
+
 #pragma mark - internal methods
 
 - (void) dispatchSync: (dispatch_block_t) block
@@ -1220,6 +1249,94 @@ static KxSMBProvider *gSmbProvider;
                            overwrite:overwrite
                                block:block];
     }
+}
+
+- (void) removeFolderAtPath:(NSString *) path
+                      block:(KxSMBBlock)block
+{
+    [self fetchAtPath:path
+                block:^(id result)
+    {
+        if ([result isKindOfClass:[NSArray class]]) {
+            
+            NSMutableArray *folders = [NSMutableArray array];
+            NSMutableArray *items = [NSMutableArray array];
+            
+            for (KxSMBItem *item in result) {
+                
+                if ([item isKindOfClass:[KxSMBItemFile class]]) {
+                    
+                    [items addObject:item];
+                    
+                } else if ([item isKindOfClass:[KxSMBItemTree class]] &&
+                           (item.type == KxSMBItemTypeDir ||
+                            item.type == KxSMBItemTypeFileShare ||
+                            item.type == KxSMBItemTypeServer))
+                {
+                    [items addObject:item];
+                    [folders addObject:item];
+                }
+            }
+            
+            if (folders.count) {
+                
+                [KxSMBProvider enumerateSMBFolders:folders
+                                             items:items
+                                             block:^(id result)
+                 {
+                     if ([result isKindOfClass:[NSArray class]]) {
+                         
+                         NSMutableArray *reversed = [NSMutableArray array];
+                         for (id item in [result reverseObjectEnumerator]) {
+                             [reversed addObject:item];
+                         }
+                         
+                         [KxSMBProvider removeSMBItems:reversed block:^(id result) {
+                             
+                             if ([result isKindOfClass:[NSNumber class]]) {
+                             
+                                 [[KxSMBProvider sharedSmbProvider] removeAtPath:path block:block];
+                                 
+                             } else {
+                                 
+                                 block([result isKindOfClass:[NSError class]] ? result : nil);
+                             }
+                         }];
+                         
+                     } else {
+                         
+                         block([result isKindOfClass:[NSError class]] ? result : nil);
+                     }
+                 }];
+                
+            } else if (items.count) {
+                
+                [KxSMBProvider removeSMBItems:items block:^(id result) {
+                    
+                    if ([result isKindOfClass:[NSNumber class]]) {
+                        
+                        [[KxSMBProvider sharedSmbProvider] removeAtPath:path block:block];
+                        
+                    } else {
+                        
+                        block([result isKindOfClass:[NSError class]] ? result : nil);
+                    }
+                }];
+                
+            } else {
+                
+                [self removeAtPath:path block:block];
+            }
+            
+        } else if ([result isKindOfClass:[KxSMBItemFile class]]) {
+            
+            block(mkKxSMBError(KxSMBErrorPathIsNotDir, path));
+            
+        } else {
+            
+            block([result isKindOfClass:[NSError class]] ? result : nil);
+        }        
+    }];
 }
 
 @end

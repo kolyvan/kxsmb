@@ -49,6 +49,7 @@ typedef enum {
     KxSMBErrorShareDoesNotExist,
     KxSMBErrorItemAlreadyExists,
     KxSMBErrorDirNotEmpty,
+    KxSMBErrorFileIO,
 
 } KxSMBError;
 
@@ -144,6 +145,15 @@ typedef void (^KxSMBBlock)(id result);
 - (void) removeAtPath: (NSString *) path block: (KxSMBBlock) block;
 - (id) removeAtPath: (NSString *) path;
 
+- (void) copySMBPath:(NSString *)smbPath
+           localPath:(NSString *)localPath
+           overwrite:(BOOL)overwrite
+               block:(KxSMBBlock)block;
+
+- (void) copyLocalPath:(NSString *)localPath
+               smbPath:(NSString *)smbPath
+             overwrite:(BOOL)overwrite
+                 block:(KxSMBBlock)block;
 @end
 
 @interface NSString (KxSMB)

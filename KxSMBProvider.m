@@ -55,6 +55,7 @@ static NSString * KxSMBErrorMessage (KxSMBError errorCode)
         case KxSMBErrorShareDoesNotExist:   return NSLocalizedString(@"SMB Share does not exist", nil);
         case KxSMBErrorItemAlreadyExists:   return NSLocalizedString(@"SMB Item already exists", nil);
         case KxSMBErrorDirNotEmpty:         return NSLocalizedString(@"SMB Directory not empty", nil);
+        case KxSMBErrorFileIO:              return NSLocalizedString(@"SMB File I/O failure", nil);
 
     }
 }
@@ -564,6 +565,411 @@ static KxSMBProvider *gSmbProvider;
     return itemFile;
 }
 
++ (NSError *) ensureLocalFolderExists:(NSString *)folderPath
+{
+    NSFileManager *fm = [[NSFileManager alloc] init];
+    BOOL isDir;
+    if ([fm fileExistsAtPath:folderPath isDirectory:&isDir]) {
+        
+        if (!isDir) {
+            
+            return mkKxSMBError(KxSMBErrorFileIO,
+                                NSLocalizedString(@"Cannot overwrite file %@", nil),
+                                folderPath);
+        }
+        
+    } else {
+        
+        NSError *error;
+        if (![fm createDirectoryAtPath:folderPath
+           withIntermediateDirectories:NO
+                            attributes:nil
+                                 error:&error]) {
+            
+            return error;
+            
+        }
+    }
+    return nil;
+}
+
++ (NSFileHandle *) createLocalFile:(NSString *)path
+                         overwrite:(BOOL) overwrite
+                             error:(NSError **)outError
+{
+    NSFileManager *fm = [[NSFileManager alloc] init];
+    
+    if ([fm fileExistsAtPath:path]) {
+        
+        if (overwrite) {
+            
+            if (![fm removeItemAtPath:path error:outError]) {
+                return nil;
+            }
+            
+        } else {
+            
+            return nil;
+        }
+    }
+    
+    NSString *folder = path.stringByDeletingLastPathComponent;
+    
+    if (![fm fileExistsAtPath:folder] &&
+        ![fm createDirectoryAtPath:folder
+       withIntermediateDirectories:YES
+                        attributes:nil
+                             error:outError]) {
+            return nil;
+        }
+    
+    if (![fm createFileAtPath:path
+                     contents:nil
+                   attributes:nil]) {
+        
+        if (!outError) {
+            *outError = mkKxSMBError(KxSMBErrorFileIO,
+                                     NSLocalizedString(@"Unable create file", nil),
+                                     path.lastPathComponent);
+        }
+        return nil;
+    }
+    
+    return [NSFileHandle fileHandleForWritingToURL:[NSURL fileURLWithPath:path]
+                                             error:outError];
+}
+
++ (void) readSMBFile:(KxSMBItemFile *)smbFile
+          fileHandle:(NSFileHandle *)fileHandle
+               block:(KxSMBBlock)block
+{
+    [smbFile readDataOfLength:1024*1024
+                        block:^(id result)
+     {
+         if ([result isKindOfClass:[NSData class]]) {
+             
+             NSData *data = result;
+             if (data.length) {
+                 
+                 [fileHandle writeData:data];
+                 [self readSMBFile:smbFile
+                        fileHandle:fileHandle
+                             block:block];
+                 
+             } else {
+                 
+                 [fileHandle closeFile];
+                 block(@(YES)); // complete
+             }
+             
+             return;
+         }
+         
+         [fileHandle closeFile];
+         block([result isKindOfClass:[NSError class]] ? result : nil);
+     }];
+    
+}
+
++ (void) copySMBFile:(KxSMBItemFile *)smbFile
+           localPath:(NSString *)localPath
+           overwrite:(BOOL)overwrite
+               block:(KxSMBBlock)block
+{
+    NSError *error = nil;
+    NSFileHandle *fileHandle = [self createLocalFile:localPath overwrite:overwrite error:&error];
+    if (fileHandle) {
+        
+        [self readSMBFile:smbFile fileHandle:fileHandle block:block];
+        
+    } else {
+        
+        if (!error) {
+            
+            error = mkKxSMBError(KxSMBErrorFileIO,
+                                 NSLocalizedString(@"Cannot overwrite file %@", nil),
+                                 localPath.lastPathComponent);
+        }
+        
+        block(error);
+    }
+}
+
++ (void) enumerateSMBFolders:(NSArray *)folders
+                       items:(NSMutableArray *)items
+                       block:(KxSMBBlock)block
+{
+    KxSMBItemTree *folder = folders[0];
+    NSMutableArray *mfolders = [folders mutableCopy];
+    [mfolders removeObjectAtIndex:0];
+    
+    [folder fetchItems:^(id result)
+     {
+         if ([result isKindOfClass:[NSArray class]]) {
+             
+             for (KxSMBItem *item in result ) {
+                 
+                 if ([item isKindOfClass:[KxSMBItemFile class]]) {
+                     
+                     [items addObject:item];
+                     
+                 } else if ([item isKindOfClass:[KxSMBItemTree class]] &&
+                            (item.type == KxSMBItemTypeDir ||
+                             item.type == KxSMBItemTypeFileShare ||
+                             item.type == KxSMBItemTypeServer))
+                 {
+                     [mfolders addObject:item];
+                     [items addObject:item];
+                 }
+             }
+             
+             if (mfolders.count) {
+                 
+                 [self enumerateSMBFolders:mfolders items:items block:block];
+                 
+             } else {
+                 
+                 block(items);
+             }
+             
+         } else {
+             
+             block([result isKindOfClass:[NSError class]] ? result : nil);
+         }
+     }];
+}
+
++ (void) copySMBItems:(NSArray *)smbItems
+            smbFolder:(NSString *)smbFolder
+          localFolder:(NSString *)localFolder
+            overwrite:(BOOL)overwrite
+                block:(KxSMBBlock)block
+{
+    KxSMBItem *item = smbItems[0];
+    if (smbItems.count > 1) {
+        smbItems = [smbItems subarrayWithRange:NSMakeRange(1, smbItems.count - 1)];
+    } else {
+        smbItems = nil;
+    }
+    
+    if ([item isKindOfClass:[KxSMBItemFile class]]) {
+        
+        NSString *destPath = localFolder;
+        NSString *itemFolder = item.path.stringByDeletingLastPathComponent;
+        if (itemFolder.length > smbFolder.length) {
+            NSString *relPath = [itemFolder substringFromIndex:smbFolder.length];
+            destPath = [destPath stringByAppendingPathComponent:relPath];
+        }
+        destPath = [destPath stringByAppendingSMBPathComponent:item.path.lastPathComponent];
+        
+        [self copySMBFile:(KxSMBItemFile *)item
+                 localPath:destPath
+                overwrite:overwrite
+                    block:^(id result)
+         {
+             if ([result isKindOfClass:[NSError class]]) {
+                 
+                 block(result);
+                 
+             } else {
+                 
+                 if (smbItems.count) {
+                     
+                     [self copySMBItems:smbItems
+                              smbFolder:smbFolder
+                            localFolder:localFolder
+                              overwrite:overwrite
+                                  block:block];
+                     
+                 } else {
+                     
+                     block(@(YES)); // complete
+                 }
+             }             
+         }];
+        
+    } else if ([item isKindOfClass:[KxSMBItemTree class]]) {
+        
+        NSString *destPath = localFolder;
+        NSString *itemFolder = item.path;
+        if (itemFolder.length > smbFolder.length) {
+            NSString *relPath = [itemFolder substringFromIndex:smbFolder.length];
+            destPath = [destPath stringByAppendingPathComponent:relPath];
+        }
+        
+        NSError *error = [self ensureLocalFolderExists:destPath];
+        if (error) {
+            block(error);
+            return;
+        }
+        
+        if (smbItems.count) {
+            
+            [self copySMBItems:smbItems
+                     smbFolder:smbFolder
+                   localFolder:localFolder
+                     overwrite:overwrite
+                         block:block];
+            
+        } else {
+            
+            block(@(YES)); // complete
+        }
+    }
+}
+
+///
+
++ (void) writeSMBFile:(KxSMBItemFile *)smbFile
+           fileHandle:(NSFileHandle *)fileHandle
+                block:(KxSMBBlock)block
+{
+    NSData *data;
+    
+    @try {
+        
+        data = [fileHandle readDataOfLength:1024*1024];
+    }
+    @catch (NSException *exception) {
+        
+        [fileHandle closeFile];
+        block(mkKxSMBError(KxSMBErrorFileIO, [exception description]));
+        return;
+    }
+    
+    if (data.length) {
+        
+        [smbFile writeData:data block:^(id result) {
+            
+            if ([result isKindOfClass:[NSNumber class]]) {
+                
+                [self  writeSMBFile:smbFile
+                         fileHandle:fileHandle
+                              block:block];
+                
+                return;
+            }
+            
+            block([result isKindOfClass:[NSError class]] ? result : nil);
+        }];
+        
+    } else {
+        
+        [fileHandle closeFile];
+        block(smbFile);
+    }
+}
+
++ (void) copyLocalFile:(NSString *)localPath
+               smbPath:(NSString *)smbPath
+             overwrite:(BOOL)overwrite
+                 block:(KxSMBBlock)block
+{
+    KxSMBProvider *provider = [KxSMBProvider sharedSmbProvider];
+    
+    [provider createFileAtPath:smbPath
+                     overwrite:overwrite
+                         block:^(id result)
+     {
+         if ([result isKindOfClass:[KxSMBItemFile class]]) {
+             
+             NSError *error = nil;
+             NSFileHandle *fileHandle;
+             NSURL *url =[NSURL fileURLWithPath:localPath];
+             fileHandle = [NSFileHandle fileHandleForReadingFromURL:url error:&error];
+             
+             if (fileHandle) {
+                 
+                 [self writeSMBFile:result fileHandle:fileHandle block:block];
+                 
+             } else {
+                 
+                 block(error);
+             }
+             
+         } else {
+             
+             block([result isKindOfClass:[NSError class]] ? result : nil);
+         }
+     }];
+}
+
++ (void) copyLocalFiles:(NSDirectoryEnumerator *)enumerator
+            localFolder:(NSString *)localFolder
+              smbFolder:(KxSMBItemTree *)smbFolder
+              overwrite:(BOOL)overwrite
+                  block:(KxSMBBlock)block
+{
+    NSString *path = [enumerator nextObject];
+    if (path) {
+        
+        if (path.length && [path characterAtIndex:0] != '.') {
+            
+            NSDictionary *attr = [enumerator fileAttributes];
+            if ([[attr fileType] isEqualToString:NSFileTypeDirectory]) {
+                
+                KxSMBProvider *provider = [KxSMBProvider sharedSmbProvider];
+                [provider createFolderAtPath:[smbFolder.path stringByAppendingSMBPathComponent:path]
+                                       block:^(id result)
+                 {
+                     if ([result isKindOfClass:[NSError class]]) {
+                         
+                         block(result);
+                         
+                     } else {
+                         
+                         [self copyLocalFiles:enumerator
+                                  localFolder:localFolder
+                                    smbFolder:smbFolder
+                                    overwrite:overwrite
+                                        block:block];
+                     }
+                 }];
+                
+                return;
+                
+            } else if ([[attr fileType] isEqualToString:NSFileTypeRegular]) {
+                
+                NSString *destFolder = smbFolder.path;
+                NSString *fileFolder = path.stringByDeletingLastPathComponent;
+                if (fileFolder.length)
+                    destFolder = [destFolder stringByAppendingSMBPathComponent:fileFolder];
+                
+                [self copyLocalFile:[localFolder stringByAppendingPathComponent:path]
+                            smbPath:[destFolder stringByAppendingSMBPathComponent:path.lastPathComponent]
+                          overwrite:overwrite
+                              block:^(id result)
+                 {
+                     if ([result isKindOfClass:[NSError class]]) {
+                         
+                         block(result);
+                         
+                     } else {
+                         
+                         [self copyLocalFiles:enumerator
+                                  localFolder:localFolder
+                                    smbFolder:smbFolder
+                                    overwrite:overwrite
+                                        block:block];
+                     }
+                 }];
+                
+                return;
+            }
+        }
+        
+        [self copyLocalFiles:enumerator
+                 localFolder:localFolder
+                   smbFolder:smbFolder
+                   overwrite:overwrite
+                       block:block];
+        
+    } else {
+        
+        block(smbFolder);
+    }
+}
+
 #pragma mark - internal methods
 
 - (void) dispatchSync: (dispatch_block_t) block
@@ -681,6 +1087,139 @@ static KxSMBProvider *gSmbProvider;
         result = [KxSMBProvider createFolderAtPath:path];
     });
     return result;
+}
+
+- (void) copySMBPath:(NSString *)smbPath
+           localPath:(NSString *)localPath
+           overwrite:(BOOL)overwrite
+               block:(KxSMBBlock)block
+{   
+    [self fetchAtPath:smbPath block:^(id result) {
+        
+        if ([result isKindOfClass:[KxSMBItemFile class]]) {
+            
+            [KxSMBProvider copySMBFile:result
+                             localPath:localPath
+                             overwrite:overwrite
+                                 block:block];            
+            
+        } else if ([result isKindOfClass:[NSArray class]]) {
+            
+            NSError *error = [KxSMBProvider ensureLocalFolderExists:localPath];
+            if (error) {
+                block(error);
+                return;
+            }
+            
+            NSMutableArray *folders = [NSMutableArray array];
+            NSMutableArray *items = [NSMutableArray array];
+            
+            for (KxSMBItem *item in result ) {
+                
+                if ([item isKindOfClass:[KxSMBItemFile class]]) {
+                    
+                    [items addObject:item];
+                    
+                } else if ([item isKindOfClass:[KxSMBItemTree class]] &&
+                           (item.type == KxSMBItemTypeDir ||
+                            item.type == KxSMBItemTypeFileShare ||
+                            item.type == KxSMBItemTypeServer))
+                {
+                    [items addObject:item];
+                    [folders addObject:item];
+                }
+            }
+            
+            if (folders.count) {
+                
+                [KxSMBProvider enumerateSMBFolders:folders
+                                             items:items
+                                             block:^(id result)
+                 {                     
+                     if ([result isKindOfClass:[NSArray class]]) {
+                         
+                         NSArray *items = result;
+                         if (items.count) {
+                             
+                             [KxSMBProvider copySMBItems:items
+                                               smbFolder:smbPath
+                                             localFolder:localPath
+                                               overwrite:overwrite
+                                                   block:block];
+                             
+                         } else {
+                             
+                             block(@(YES));
+                         }
+                         
+                     } else {
+                         
+                         block(result);
+                     }
+                 }];
+                
+            } else if (items.count) {
+                
+                [KxSMBProvider copySMBItems:items
+                                  smbFolder:smbPath
+                                localFolder:localPath
+                                  overwrite:overwrite
+                                      block:block];                
+                
+            }  else {
+                
+                block(@(YES));
+                return;
+            }
+            
+        } else {
+            
+            block([result isKindOfClass:[NSError class]] ? result : nil);
+        }
+    }];
+}
+
+
+- (void) copyLocalPath:(NSString *)localPath
+               smbPath:(NSString *)smbPath
+             overwrite:(BOOL)overwrite
+                 block:(KxSMBBlock)block
+{
+    NSFileManager *fm = [[NSFileManager alloc] init];
+    BOOL isDir;
+    if (![fm fileExistsAtPath:localPath isDirectory:&isDir]) {
+        
+        block(mkKxSMBError(KxSMBErrorFileIO,
+                           NSLocalizedString(@"File '%@' is not exist", nil),
+                           localPath.lastPathComponent));
+        return;
+    }
+    
+    if (isDir) {
+        
+        [self createFolderAtPath:smbPath
+                           block:^(id result)
+         {
+             if ([result isKindOfClass:[KxSMBItemTree class]]) {
+                 
+                 [KxSMBProvider copyLocalFiles:[fm enumeratorAtPath:localPath]
+                                   localFolder:localPath
+                                     smbFolder:result
+                                     overwrite:overwrite
+                                         block:block];
+             } else {
+                 
+                 block([result isKindOfClass:[NSError class]] ? result : nil);
+             }
+         }];        
+        
+    } else {
+        
+        [KxSMBProvider copyLocalFile:localPath
+                             smbPath:smbPath
+                           overwrite:overwrite
+                               block:block];
+    }
 }
 
 @end

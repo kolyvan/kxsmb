@@ -158,6 +158,10 @@ typedef void (^KxSMBBlock)(id result);
 - (void) removeFolderAtPath:(NSString *) path
                       block:(KxSMBBlock)block;
 
+- (void) renameAtPath:(NSString *)oldPath
+              newPath:(NSString *)newPath
+                block:(KxSMBBlock)block;
+
 @end
 
 @interface NSString (KxSMB)

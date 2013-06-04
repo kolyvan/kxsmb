@@ -970,6 +970,7 @@ static KxSMBProvider *gSmbProvider;
     }
 }
 
+///
 
 + (void) removeSMBItems:(NSArray *)smbItems
                   block:(KxSMBBlock)block
@@ -997,6 +998,64 @@ static KxSMBProvider *gSmbProvider;
             block(@(YES));
         }
     }];
+}
+
++ (id) renameAtPath:(NSString *)oldPath
+            newPath:(NSString *)newPath
+{
+    NSParameterAssert(oldPath);
+    NSParameterAssert(newPath);    
+    
+    if (![oldPath hasPrefix:@"smb://"]) {
+        return mkKxSMBError(KxSMBErrorInvalidProtocol,
+                            NSLocalizedString(@"Path:%@", nil), oldPath);
+    }
+    
+    if (![newPath hasPrefix:@"smb://"]) {
+        return mkKxSMBError(KxSMBErrorInvalidProtocol,
+                            NSLocalizedString(@"Path:%@", nil), newPath);
+    }
+    
+    SMBCCTX *smbContext = [self openSmbContext];
+    if (!smbContext) {
+        const int err = errno;
+        return mkKxSMBError(errnoToSMBErr(err),
+                            NSLocalizedString(@"Unable init SMB context (errno:%d)", nil), err);
+    }
+    
+    id result;
+    
+    int r = smbc_getFunctionRename(smbContext)(smbContext, oldPath.UTF8String, smbContext, newPath.UTF8String);
+    if (r < 0) {
+        
+        const int err = errno;
+        result =  mkKxSMBError(errnoToSMBErr(err),
+                               NSLocalizedString(@"Unable rename file:%@ (errno:%d)", nil), oldPath, err);
+        
+    } else {
+        
+        result = [self fetchStat:smbContext atPath: newPath];
+        if ([result isKindOfClass:[KxSMBItemStat class]]) {
+            
+            KxSMBItemStat *stat = result;
+            
+            if (S_ISDIR(stat.mode)) {
+                
+                result = [[KxSMBItemTree alloc] initWithType:KxSMBItemTypeDir path:newPath stat:stat];
+                
+            } else if (S_ISREG(stat.mode)) {
+                
+                result = [[KxSMBItemFile alloc] initWithType:KxSMBItemTypeFile path:newPath stat:stat];
+                
+            } else {
+                
+                result = nil;
+            }
+        } 
+    }
+    
+    [self closeSmbContext:smbContext];
+    return result;
 }
 
 #pragma mark - internal methods
@@ -1338,6 +1397,24 @@ static KxSMBProvider *gSmbProvider;
         }        
     }];
 }
+
+- (void) renameAtPath:(NSString *)oldPath
+              newPath:(NSString *)newPath
+                block:(KxSMBBlock)block
+{
+    NSParameterAssert(oldPath);
+    NSParameterAssert(newPath);    
+    NSParameterAssert(block);
+    
+    dispatch_async(_dispatchQueue, ^{
+        
+        id result = [KxSMBProvider renameAtPath:oldPath newPath:newPath];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            block(result);
+        });
+    });
+}
+
 
 @end
 

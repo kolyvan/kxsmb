@@ -627,7 +627,7 @@ static KxSMBProvider *gSmbProvider;
                      contents:nil
                    attributes:nil]) {
         
-        if (!outError) {
+        if (outError) {
             *outError = mkKxSMBError(KxSMBErrorFileIO,
                                      NSLocalizedString(@"Unable create file", nil),
                                      path.lastPathComponent);

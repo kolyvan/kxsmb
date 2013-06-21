@@ -241,6 +241,8 @@ end
 desc "Copy smb headers"
 task :copy_headers do		
 	copyIfNotExists('libsmbclient.h', "#{SAMBA_SOURCE_PATH}/include/", 'libs')
+    copyIfNotExists('talloc.h', "#{SAMBA_FOLDER}/lib/talloc/", 'libs')
+    copyIfNotExists('talloc_stack.h', "#{SAMBA_FOLDER}/lib/util/", 'libs')
 end	
 
 desc "Copy smb libs"

@@ -59,6 +59,8 @@
 		87085FC81705D4FD009CD258 /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = usr/lib/libz.dylib; sourceTree = SDKROOT; };
 		87085FCA1705D503009CD258 /* libiconv.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libiconv.dylib; path = usr/lib/libiconv.dylib; sourceTree = SDKROOT; };
 		87085FCC1705D509009CD258 /* libresolv.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libresolv.dylib; path = usr/lib/libresolv.dylib; sourceTree = SDKROOT; };
+		871CC5581774489A00EDD76D /* talloc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = talloc.h; path = libs/talloc.h; sourceTree = "<group>"; };
+		871CC5591774491A00EDD76D /* talloc_stack.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = talloc_stack.h; path = libs/talloc_stack.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -148,6 +150,8 @@
 		87085FBE1705D4BE009CD258 /* libs */ = {
 			isa = PBXGroup;
 			children = (
+				871CC5591774491A00EDD76D /* talloc_stack.h */,
+				871CC5581774489A00EDD76D /* talloc.h */,
 				87085FC01705D4CA009CD258 /* libsmbclient.h */,
 				87085FBF1705D4CA009CD258 /* libsmbclient.a */,
 				87085FC11705D4CA009CD258 /* libtalloc.a */,
@@ -308,6 +312,7 @@
 			buildSettings = {
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "KxSMBSample/KxSMBSample-Prefix.pch";
+				HEADER_SEARCH_PATHS = "\"$(SRCROOT)/libs\"";
 				INFOPLIST_FILE = "KxSMBSample/KxSMBSample-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 5.0;
 				LIBRARY_SEARCH_PATHS = (
@@ -315,6 +320,7 @@
 					"\"$(SRCROOT)/libs\"",
 				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				USER_HEADER_SEARCH_PATHS = "";
 				WRAPPER_EXTENSION = app;
 			};
 			name = Debug;
@@ -324,6 +330,7 @@
 			buildSettings = {
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "KxSMBSample/KxSMBSample-Prefix.pch";
+				HEADER_SEARCH_PATHS = "\"$(SRCROOT)/libs\"";
 				INFOPLIST_FILE = "KxSMBSample/KxSMBSample-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 5.0;
 				LIBRARY_SEARCH_PATHS = (
@@ -331,6 +338,7 @@
 					"\"$(SRCROOT)/libs\"",
 				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				USER_HEADER_SEARCH_PATHS = "";
 				WRAPPER_EXTENSION = app;
 			};
 			name = Release;

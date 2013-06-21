@@ -34,6 +34,7 @@
 
 #import "KxSMBProvider.h"
 #import "libsmbclient.h"
+#import "talloc_stack.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -267,7 +268,12 @@ static KxSMBProvider *gSmbProvider;
 + (void) closeSmbContext: (SMBCCTX *) smbContext
 {
     if (smbContext) {
+        
+        // fixes warning: no talloc stackframe at libsmb/cliconnect.c:2637, leaking memory
+        TALLOC_CTX *frame = talloc_stackframe();
         smbc_getFunctionPurgeCachedServers(smbContext)(smbContext);
+        TALLOC_FREE(frame);
+        
         smbc_free_context(smbContext, NO);
     }
 }

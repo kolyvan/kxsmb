@@ -248,7 +248,7 @@ static KxSMBProvider *gSmbProvider;
 		return NULL;
 		
 #ifdef DEBUG
-    smbc_setDebug(smbContext, 1);
+    smbc_setDebug(smbContext, SAMBA_DEBUG_LEVEL);
 #else
     smbc_setDebug(smbContext, 0);
 #endif

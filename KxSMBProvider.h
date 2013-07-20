@@ -33,6 +33,8 @@
 
 #import <Foundation/Foundation.h>
 
+#define SAMBA_DEBUG_LEVEL 10
+
 extern NSString * const KxSMBErrorDomain;
 
 typedef enum {

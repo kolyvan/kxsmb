@@ -72,13 +72,13 @@ end
 
 # versions
 
-SDK_VERSION='6.1'
+SDK_VERSION='7.0'
 IOS_MIN_VERSION='5.0'
-SAMBA_VERSION='4.0.6'
+SAMBA_VERSION='4.0.7'
 
 # samba source
 
-SAMBA_BASE_URL="http://ftp.samba.org/pub/samba/"
+SAMBA_BASE_URL="http://ftp.samba.org/pub/samba/stable/"
 
 #pathes
 
@@ -150,6 +150,7 @@ IOS_SMB_ARGS = [
 SMB_LIBS = [
 'libsmbclient',
 'libtalloc',
+'libtevent',
 'libtdb',
 'libwbclient',
 ]

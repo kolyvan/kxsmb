@@ -29,6 +29,7 @@
 		87085FCD1705D509009CD258 /* libresolv.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 87085FCC1705D509009CD258 /* libresolv.dylib */; };
 		871CC5751774589C00EDD76D /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 87085F8E1705D46C009CD258 /* Foundation.framework */; };
 		871CC580177458AD00EDD76D /* KxSMBProvider.m in Sources */ = {isa = PBXBuildFile; fileRef = 87085FB31705D494009CD258 /* KxSMBProvider.m */; };
+		EAC6EFEE179A4133005AC807 /* libtevent.a in Frameworks */ = {isa = PBXBuildFile; fileRef = EAC6EFED179A4133005AC807 /* libtevent.a */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -77,6 +78,7 @@
 		871CC5591774491A00EDD76D /* talloc_stack.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = talloc_stack.h; path = libs/talloc_stack.h; sourceTree = "<group>"; };
 		871CC5741774589C00EDD76D /* libKxSMB.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libKxSMB.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		871CC5781774589C00EDD76D /* KxSMB-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "KxSMB-Prefix.pch"; sourceTree = "<group>"; };
+		EAC6EFED179A4133005AC807 /* libtevent.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libtevent.a; path = libs/libtevent.a; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -90,6 +92,7 @@
 				87085F8D1705D46C009CD258 /* UIKit.framework in Frameworks */,
 				87085F8F1705D46C009CD258 /* Foundation.framework in Frameworks */,
 				87085F911705D46C009CD258 /* CoreGraphics.framework in Frameworks */,
+				EAC6EFEE179A4133005AC807 /* libtevent.a in Frameworks */,
 				87085FC41705D4CA009CD258 /* libsmbclient.a in Frameworks */,
 				87085FC51705D4CA009CD258 /* libtalloc.a in Frameworks */,
 				87085FC61705D4CA009CD258 /* libtdb.a in Frameworks */,
@@ -133,6 +136,7 @@
 		87085F8B1705D46C009CD258 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				EAC6EFED179A4133005AC807 /* libtevent.a */,
 				87085FCC1705D509009CD258 /* libresolv.dylib */,
 				87085FCA1705D503009CD258 /* libiconv.dylib */,
 				87085FC81705D4FD009CD258 /* libz.dylib */,
@@ -467,6 +471,7 @@
 				871CC57E1774589C00EDD76D /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

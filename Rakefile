@@ -74,15 +74,15 @@ end
 
 SDK_VERSION='6.1'
 IOS_MIN_VERSION='5.0'
-SAMBA_VERSION='4.0.6'
+SAMBA_VERSION='4.0.7'
 
 # samba source
 
-SAMBA_BASE_URL="http://ftp.samba.org/pub/samba/"
+SAMBA_BASE_URL="http://ftp.samba.org/pub/samba/stable/"
 
 #pathes
 
-XCODE_PATH='/Applications/Xcode.app/Contents/Developer'
+XCODE_PATH=%x{ /usr/bin/xcode-select --print-path }.delete("\n")
 SIM_SDK_PATH=XCODE_PATH + "/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator#{SDK_VERSION}.sdk"
 IOS_SDK_PATH=XCODE_PATH + "/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS#{SDK_VERSION}.sdk"
 
@@ -150,6 +150,7 @@ IOS_SMB_ARGS = [
 SMB_LIBS = [
 'libsmbclient',
 'libtalloc',
+'libtevent',
 'libtdb',
 'libwbclient',
 ]

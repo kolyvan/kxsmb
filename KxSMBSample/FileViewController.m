@@ -46,6 +46,7 @@
     UIButton        *_downloadButton;
     UIProgressView  *_downloadProgress;
     UILabel         *_downloadLabel;
+    NSString        *_filePath;
     NSFileHandle    *_fileHandle;
     long            _downloadedBytes;
     NSDate          *_timestamp;
@@ -163,15 +164,15 @@
                                                                 NSUserDomainMask,
                                                                 YES) lastObject];
         NSString *filename = _smbFile.path.lastPathComponent;
-        NSString *filepath = [folder stringByAppendingPathComponent:filename];
+        _filePath = [folder stringByAppendingPathComponent:filename];
         
         NSFileManager *fm = [[NSFileManager alloc] init];
-        if ([fm fileExistsAtPath:filepath])
-            [fm removeItemAtPath:filepath error:nil];
-        [fm createFileAtPath:filepath contents:nil attributes:nil];
+        if ([fm fileExistsAtPath:_filePath])
+            [fm removeItemAtPath:_filePath error:nil];
+        [fm createFileAtPath:_filePath contents:nil attributes:nil];
         
         NSError *error;
-        _fileHandle = [NSFileHandle fileHandleForWritingToURL:[NSURL fileURLWithPath:filepath]
+        _fileHandle = [NSFileHandle fileHandleForWritingToURL:[NSURL fileURLWithPath:_filePath]
                                                         error:&error];
  
         if (_fileHandle) {
@@ -253,7 +254,20 @@
             if (_fileHandle) {
                 
                 [_fileHandle writeData:data];
-                [self download];
+                
+                if(_downloadedBytes == _smbFile.stat.size) {
+                    [self closeFiles];
+                    
+                    // If file is recognized as an image, creates an Image View to show it
+                    if([@[@"png",@"jpg",@"gif"] containsObject:[[_smbFile.path pathExtension] lowercaseString]]) {
+                        UIImageView *imageView = [[UIImageView alloc] initWithImage:[UIImage imageWithContentsOfFile:_filePath]];
+                        imageView.frame = CGRectMake(0, 220, self.view.frame.size.width, self.view.frame.size.height-220);
+                        imageView.contentMode = UIViewContentModeScaleAspectFit;
+                        [self.view addSubview:imageView];
+                    }
+                } else {
+                    [self download];
+                }
             }
         }
     } else {

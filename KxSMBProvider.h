@@ -33,7 +33,7 @@
 
 #import <Foundation/Foundation.h>
 
-#define SAMBA_DEBUG_LEVEL 10
+#define SAMBA_DEBUG_LEVEL 2
 
 extern NSString * const KxSMBErrorDomain;
 

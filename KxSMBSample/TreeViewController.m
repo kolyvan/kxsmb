@@ -40,16 +40,17 @@
 
 @implementation TreeViewController {
     
-    UITableView *_tableView;
+    BOOL        _isHeadVC;
     NSArray     *_items;
     BOOL        _loading;
-    BOOL        _needReload;
+    BOOL        _needNewPath;
+    UITextField *_newPathField;
 }
 
 - (void) setPath:(NSString *)path
 {
     _path = path;
-    _needReload = YES;
+    [self reloadPath];
 }
 
 - (id)init
@@ -58,22 +59,35 @@
     if (self) {
         
         self.title = @"";
-        _needReload = YES;
+        _needNewPath = YES;
+        _isHeadVC = NO;
+    }
+    return self;
+}
+
+- (id)initAsHeadViewController {
+    if((self = [self init])) {
+        _isHeadVC = YES;
     }
     return self;
 }
 
 - (void)loadView
 {
-    self.view = [[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]];
-    _tableView = [[UITableView alloc] initWithFrame:self.view.bounds style:UITableViewStylePlain];
-    _tableView.backgroundColor = [UIColor whiteColor];
-    _tableView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleHeight | UIViewAutoresizingFlexibleBottomMargin;
-    _tableView.delegate = self;
-    _tableView.dataSource = self;
-    _tableView.separatorStyle = UITableViewCellSeparatorStyleSingleLine;
+
+    [super loadView];
     
-    [self.view addSubview:_tableView];
+    if(NSClassFromString(@"UIRefreshControl")) {
+        UIRefreshControl *refreshControl = [[UIRefreshControl alloc] init];
+        [refreshControl addTarget:self action:@selector(reloadPath) forControlEvents:UIControlEventValueChanged];
+        self.refreshControl = refreshControl;
+    }
+    
+    if(_isHeadVC) {
+        self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemSearch
+                                                                                              target:self
+                                                                                              action:@selector(requestNewPath)];
+    }
     
     self.navigationItem.rightBarButtonItems =
     @[
@@ -85,6 +99,7 @@
                                                     target:self
                                                     action:@selector(actionCopyFile:)],
       ];
+
 }
 
 - (void)viewDidLoad
@@ -105,9 +120,13 @@
 - (void)viewWillAppear:(BOOL)animated
 {
     [super viewWillAppear:animated];
-    if (_needReload) {
-        _needReload = NO;
-        [self reloadPath];
+
+}
+
+- (void)viewDidAppear:(BOOL)animated {
+    if (self.navigationController.childViewControllers.count == 1 && _needNewPath) {
+        _needNewPath = NO;
+        [self requestNewPath];
     }
 }
 
@@ -126,13 +145,8 @@
         self.title = @"smb://";
     }
     
-    self.navigationItem.backBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:path
-                                                                             style:UIBarButtonItemStylePlain
-                                                                            target:nil
-                                                                            action:nil];
-    
     _items = nil;
-    [_tableView reloadData];
+    [self.tableView reloadData];
     [self updateStatus:[NSString stringWithFormat: @"Fetching %@..", path]];
     
     KxSMBProvider *provider = [KxSMBProvider sharedSmbProvider];
@@ -156,9 +170,33 @@
                 _items = @[result];
             }
             
-            [_tableView reloadData];
+            [self.tableView reloadData];
         }
     }];
+}
+
+- (void) requestNewPath {
+    UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Connect to Host"
+                                                    message:@"\n\n"
+                                                   delegate:self
+                                          cancelButtonTitle:@"Cancel"
+                                          otherButtonTitles:@"Go", nil];
+    
+    if(_newPathField == nil) {
+        _newPathField = [[UITextField alloc] initWithFrame:CGRectMake(12, 45, 260, 30)];
+        _newPathField.borderStyle = UITextBorderStyleRoundedRect;
+        _newPathField.placeholder = @"smb://";
+        _newPathField.keyboardType = UIKeyboardTypeURL;
+        _newPathField.autocorrectionType = UITextAutocorrectionTypeNo;
+        _newPathField.autocapitalizationType = UITextAutocapitalizationTypeNone;
+        _newPathField.text = [[NSUserDefaults standardUserDefaults] objectForKey:@"LastServer"];
+    }
+    
+    [alert addSubview:_newPathField];
+    
+    [alert show];
+    
+    [_newPathField becomeFirstResponder];
 }
 
 - (void) updateStatus: (id) status
@@ -171,7 +209,7 @@
         
         CGSize sz = activityIndicator.frame.size;        
         const float H = font.lineHeight + sz.height + 10;
-        const float W = _tableView.frame.size.width;
+        const float W = self.tableView.frame.size.width;
         
         UIView *v = [[UIView alloc] initWithFrame:CGRectMake(0, 0, W, H)];
         
@@ -186,16 +224,14 @@
         
         [v addSubview:label];
         
-        activityIndicator.frame = CGRectMake(W * 0.5, font.lineHeight + 10, sz.width, sz.height);
-        [activityIndicator startAnimating];
-        v.autoresizingMask = UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleLeftMargin;
-        [v addSubview:activityIndicator];
+        if(![self.refreshControl isRefreshing])
+            [self.refreshControl beginRefreshing];
         
-        _tableView.tableHeaderView = v;
+        self.tableView.tableHeaderView = v;
         
     } else if ([status isKindOfClass:[NSError class]]) {
         
-        const float W = _tableView.frame.size.width;
+        const float W = self.tableView.frame.size.width;
         
         UILabel *label = [[UILabel alloc] initWithFrame:CGRectMake(0, 5, W, font.lineHeight)];
         label.text = ((NSError *)status).localizedDescription;
@@ -206,11 +242,15 @@
         label.backgroundColor = [UIColor clearColor];
         label.autoresizingMask = UIViewAutoresizingFlexibleWidth;
         
-        _tableView.tableHeaderView = label;
+        self.tableView.tableHeaderView = label;
+        
+        [self.refreshControl endRefreshing];
         
     } else {
         
-        _tableView.tableHeaderView = nil;
+        self.tableView.tableHeaderView = nil;
+        
+        [self.refreshControl endRefreshing];
     }
 }
 
@@ -253,8 +293,8 @@
         [ma addObject:result];
         _items = [ma copy];
         
-        [_tableView insertRowsAtIndexPaths:@[[NSIndexPath indexPathForRow:_items.count-1 inSection:0]]
-                          withRowAnimation:UITableViewRowAnimationAutomatic];
+        [self.tableView insertRowsAtIndexPaths:@[[NSIndexPath indexPathForRow:_items.count-1 inSection:0]]
+                              withRowAnimation:UITableViewRowAnimationAutomatic];
         
     } else {
         
@@ -277,7 +317,7 @@
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
 {
     static NSString *cellIdentifier = @"Cell";
-    UITableViewCell *cell = [_tableView dequeueReusableCellWithIdentifier:cellIdentifier];
+    UITableViewCell *cell = [self.tableView dequeueReusableCellWithIdentifier:cellIdentifier];
     if (cell == nil) {
         cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleValue1
                                       reuseIdentifier:cellIdentifier];
@@ -304,7 +344,7 @@
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
 {
-    [_tableView deselectRowAtIndexPath:indexPath animated:YES];
+    [self.tableView deselectRowAtIndexPath:indexPath animated:YES];
     
     KxSMBItem *item = _items[indexPath.row];
     if ([item isKindOfClass:[KxSMBItemTree class]]) {
@@ -338,6 +378,16 @@
                 [self reloadPath];
             }
         }];        
+    }
+}
+
+#pragma mark - Alert view delegate
+
+- (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
+    if(buttonIndex == 1) {
+        self.path = _newPathField.text;
+        [[NSUserDefaults standardUserDefaults] setObject:_newPathField.text forKey:@"LastServer"];
+        [[NSUserDefaults standardUserDefaults] synchronize];
     }
 }
 

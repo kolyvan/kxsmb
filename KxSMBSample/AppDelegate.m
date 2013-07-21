@@ -42,6 +42,7 @@
 
 @implementation AppDelegate {
 
+    TreeViewController *_headVC;
     NSMutableDictionary *_cachedAuths;
     SmbAuthViewController *_smbAuthViewController;
 }
@@ -49,8 +50,8 @@
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {   
     self.window = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
-    TreeViewController *vc = [[TreeViewController alloc] init];    
-    self.window.rootViewController = [[UINavigationController alloc] initWithRootViewController:vc];
+    _headVC = [[TreeViewController alloc] initAsHeadViewController];
+    self.window.rootViewController = [[UINavigationController alloc] initWithRootViewController:_headVC];
     [self.window makeKeyAndVisible];
     
     _cachedAuths = [NSMutableDictionary dictionary];
@@ -121,6 +122,8 @@
     
     UINavigationController *nav = (UINavigationController *)self.window.rootViewController;
     [nav dismissViewControllerAnimated:YES completion:nil];
+    
+    [_headVC reloadPath];
 }
 
 - (KxSMBAuth *) smbAuthForServer: (NSString *) server

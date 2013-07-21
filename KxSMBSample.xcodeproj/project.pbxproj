@@ -136,7 +136,6 @@
 		87085F8B1705D46C009CD258 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				EAC6EFED179A4133005AC807 /* libtevent.a */,
 				87085FCC1705D509009CD258 /* libresolv.dylib */,
 				87085FCA1705D503009CD258 /* libiconv.dylib */,
 				87085FC81705D4FD009CD258 /* libz.dylib */,
@@ -187,6 +186,7 @@
 				87085FC11705D4CA009CD258 /* libtalloc.a */,
 				87085FC21705D4CA009CD258 /* libtdb.a */,
 				87085FC31705D4CA009CD258 /* libwbclient.a */,
+				EAC6EFED179A4133005AC807 /* libtevent.a */,
 			);
 			name = libs;
 			sourceTree = "<group>";

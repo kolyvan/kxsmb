@@ -32,6 +32,12 @@ Look at kxSMBSample demo project as example of using.
 
 at least iOS 5.0 and Xcode 4.5.0
 
+### License
+
+kxsmb is open source and covered by a standard 2-clause BSD license. See the LICENSE file for more info.
+
+[Samba](http://www.samba.org) is [Free Software](http://www.gnu.org/philosophy/free-sw.html) licensed under the [GNU General Public License](http://www.samba.org/samba/docs/GPL.html).
+
 ### Feedback
 
 Tweet me — [@kolyvan_ru](http://twitter.com/kolyvan_ru).

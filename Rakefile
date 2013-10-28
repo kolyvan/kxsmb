@@ -72,7 +72,7 @@ end
 
 # versions
 
-SDK_VERSION='6.1'
+SDK_VERSION='7.0'
 IOS_MIN_VERSION='5.0'
 SAMBA_VERSION='4.0.7'
 
@@ -93,24 +93,25 @@ EXT_INCLUDE_PATH='tmp/include'
 
 # configure arguments
 
-IOS_GCC_PATH=XCODE_PATH+'/Platforms/iPhoneOS.platform/Developer/usr/llvm-gcc-4.2/bin/arm-apple-darwin10-llvm-gcc-4.2'
-SIM_GCC_PATH=XCODE_PATH+'/usr/llvm-gcc-4.2/bin/i686-apple-darwin11-llvm-gcc-4.2' 
-
 CF_FLAGS='-pipe -Wno-trigraphs -fpascal-strings -Os -Wreturn-type -Wunused-variable -fmessage-length=0 -gdwarf-2'
 
-IOS_CF_FLAGS='-mcpu=cortex-a8 -mfpu=neon -ftree-vectorize -mfloat-abi=softfp'
-IOS_LD_FLAGS='-mcpu=cortex-a8'
+IOS_CF_FLAGS='-ftree-vectorize'
+IOS_LD_FLAGS=''
 
-ARM7_CF_FLAGS="-march=armv7 #{IOS_CF_FLAGS} #{CF_FLAGS}"
-ARM7_LD_FLAGS="-march=armv7 #{IOS_LD_FLAGS}"
+ARM7_CF_FLAGS="-arch armv7 -mcpu=cortex-a8 -mfpu=neon #{IOS_CF_FLAGS} #{CF_FLAGS}"
+ARM7_LD_FLAGS="-arch armv7 #{IOS_LD_FLAGS}"
 
-ARM7s_CF_FLAGS="-march=armv7s #{IOS_CF_FLAGS} #{CF_FLAGS}"
-ARM7s_LD_FLAGS="-march=armv7s #{IOS_LD_FLAGS}"
+ARM7s_CF_FLAGS="-arch armv7s -mcpu=cortex-a8 -mfpu=neon #{IOS_CF_FLAGS} #{CF_FLAGS}"
+ARM7s_LD_FLAGS="-arch armv7s #{IOS_LD_FLAGS}"
 
-I386_CF_FLAGS="-march=i386 #{CF_FLAGS}"
-I386_LD_FLAGS='-march=i386'
+ARM64_CF_FLAGS="-arch arm64 #{IOS_CF_FLAGS} #{CF_FLAGS}"
+ARM64_LD_FLAGS="-arch arm64 #{IOS_LD_FLAGS}"
+
+I386_CF_FLAGS="-arch i386 #{CF_FLAGS}"
+I386_LD_FLAGS='-arch i386'
 
 SMB_ARGS = [
+'--prefix=/private',
 '--disable-shared',
 '--enable-static',
 '--without-readline',
@@ -130,8 +131,7 @@ SIM_SMB_ARGS = [
 '--enable-debug',
 ]
 
-IOS_SMB_ARGS = [			
-'--enable-cross-compile',
+IOS_SMB_ARGS = [
 'ac_cv_header_libunwind_h=no',
 'ac_cv_header_execinfo_h=no',
 'ac_cv_header_rpcsvc_ypclnt_h=no',
@@ -141,8 +141,22 @@ IOS_SMB_ARGS = [
 'samba_cv_SYSCONF_SC_NPROCESSORS_ONLN=no',
 'samba_cv_big_endian=no',
 'samba_cv_little_endian=yes',
-'--host=arm-apple-darwin10',
-'--build=x86',
+]
+
+ARM7_SMB_ARGS = [
+'--host=arm-apple-darwin',
+]
+
+ARM7s_SMB_ARGS = [
+'--host=arm-apple-darwin',
+]
+
+ARM64_SMB_ARGS = [
+'--host=aarch64-apple-darwin',
+]
+
+I386_SMB_ARGS = [
+'--host=i686-apple-darwin',
 ]
 
 # libs
@@ -157,16 +171,18 @@ SMB_LIBS = [
 
 # functions
 
-def mkArgs(sdkPath, platformArgs, gccPath, cfFlags, ldFlags)
+def mkArgs(sdkPath, platformArgs, procArgs, cfFlags, ldFlags)
 
 	extInclude = Pathname.new(EXT_INCLUDE_PATH).realpath
 
-	args = SMB_ARGS + platformArgs
-	args << "CC=#{gccPath}"
-	args << "CPPFLAGS=\"-I#{sdkPath}/usr/include -I#{extInclude}\""
-	args << "CFLAGS=-\"std=gnu99 -no-cpp-precomp -miphoneos-version-min=#{IOS_MIN_VERSION} -isysroot #{sdkPath} -I#{sdkPath}/usr/include #{cfFlags}\""
-	args << "LDFLAGS=\"-miphoneos-version-min=#{IOS_MIN_VERSION} -isysroot #{sdkPath} -L#{sdkPath}/usr/lib -L#{sdkPath}/usr/lib/system #{ldFlags}\""
-	
+	args = SMB_ARGS + platformArgs + procArgs
+	ENV['AR']="xcrun ar"
+	ENV['CC']="xcrun clang"
+	ENV['CPP']="xcrun clang -E"
+	ENV['LD']="xcrun ld"
+	ENV['CFLAGS']="-std=gnu99 -no-cpp-precomp -miphoneos-version-min=#{IOS_MIN_VERSION} -isysroot #{sdkPath} -I#{sdkPath}/usr/include #{cfFlags}"
+	ENV['CPPFLAGS']="-std=gnu99 -no-cpp-precomp -miphoneos-version-min=#{IOS_MIN_VERSION} -isysroot #{sdkPath} -I#{sdkPath}/usr/include #{cfFlags} -I#{extInclude}"
+	ENV['LDFLAGS']="-miphoneos-version-min=#{IOS_MIN_VERSION} -isysroot #{sdkPath} -L#{sdkPath}/usr/lib #{ldFlags}"
 	args.join(' ')
 end
 
@@ -174,11 +190,13 @@ def buildArch(arch)
 
 	case arch
 	when 'i386'
-		args = mkArgs(SIM_SDK_PATH, SIM_SMB_ARGS, SIM_GCC_PATH, I386_CF_FLAGS, I386_LD_FLAGS)
+		args = mkArgs(SIM_SDK_PATH, SIM_SMB_ARGS, I386_SMB_ARGS, I386_CF_FLAGS, I386_LD_FLAGS)
 	when 'armv7'
-		args = mkArgs(IOS_SDK_PATH, IOS_SMB_ARGS, IOS_GCC_PATH, ARM7_CF_FLAGS, ARM7_LD_FLAGS)
+		args = mkArgs(IOS_SDK_PATH, IOS_SMB_ARGS, ARM7_SMB_ARGS, ARM7_CF_FLAGS, ARM7_LD_FLAGS)
 	when 'armv7s'	
-		args = mkArgs(IOS_SDK_PATH, IOS_SMB_ARGS, IOS_GCC_PATH, ARM7s_CF_FLAGS, ARM7s_LD_FLAGS)
+		args = mkArgs(IOS_SDK_PATH, IOS_SMB_ARGS, ARM7s_SMB_ARGS, ARM7s_CF_FLAGS, ARM7s_LD_FLAGS)
+	when 'arm64'	
+		args = mkArgs(IOS_SDK_PATH, IOS_SMB_ARGS, ARM64_SMB_ARGS, ARM64_CF_FLAGS, ARM64_LD_FLAGS)
 	else
 		raise "Build failed: unknown arch: #{arch}"
 	end
@@ -222,6 +240,12 @@ task :build_smb_armv7s do
 	buildArch('armv7s')	
 end
 
+desc "Build smb arm64 libs"
+task :build_smb_arm64 do
+	checkExtInclude	
+	buildArch('arm64')	
+end
+
 desc "Build smb i386 libs"
 task :build_smb_i386 do	
 	buildArch('i386')	
@@ -233,17 +257,18 @@ task :build_smb_universal do
 	dest = Pathname.new("#{SAMBA_SOURCE_PATH}/bin/universal")
 	dest.mkdir unless dest.exist?
 
-	SMB_LIBS.each do |x|		
-		args = "-create -arch armv7 #{SAMBA_SOURCE_PATH}/bin/armv7/#{x}.a -arch armv7 #{SAMBA_SOURCE_PATH}/bin/armv7s/#{x}.a -arch i386 #{SAMBA_SOURCE_PATH}/bin/i386/#{x}.a -output #{dest}/#{x}.a"
-		system_or_exit "lipo #{args}"
+	SMB_LIBS.each do |x|
+#		args = "-create -arch armv7 #{SAMBA_SOURCE_PATH}/bin/armv7/#{x}.a -arch armv7s #{SAMBA_SOURCE_PATH}/bin/armv7s/#{x}.a -arch arm64 #{SAMBA_SOURCE_PATH}/bin/arm64/#{x}.a -arch i386 #{SAMBA_SOURCE_PATH}/bin/i386/#{x}.a -output #{dest}/#{x}.a"
+		args = "-create -arch armv7 #{SAMBA_SOURCE_PATH}/bin/armv7/#{x}.a -arch armv7s #{SAMBA_SOURCE_PATH}/bin/armv7s/#{x}.a -arch i386 #{SAMBA_SOURCE_PATH}/bin/i386/#{x}.a -output #{dest}/#{x}.a"
+		system_or_exit "xcrun lipo #{args}"
 	end	
 end
 
 desc "Copy smb headers"
 task :copy_headers do		
 	copyIfNotExists('libsmbclient.h', "#{SAMBA_SOURCE_PATH}/include/", 'libs')
-    copyIfNotExists('talloc.h', "#{SAMBA_FOLDER}/lib/talloc/", 'libs')
-    copyIfNotExists('talloc_stack.h', "#{SAMBA_FOLDER}/lib/util/", 'libs')
+	copyIfNotExists('talloc.h', "#{SAMBA_FOLDER}/lib/talloc/", 'libs')
+	copyIfNotExists('talloc_stack.h', "#{SAMBA_FOLDER}/lib/util/", 'libs')
 end	
 
 desc "Copy smb libs"
@@ -265,6 +290,7 @@ desc "Clean"
 task :clean do
 	cleanDir("#{SAMBA_SOURCE_PATH}/bin/armv7")
 	cleanDir("#{SAMBA_SOURCE_PATH}/bin/armv7s")
+	cleanDir("#{SAMBA_SOURCE_PATH}/bin/arm64")
 	cleanDir("#{SAMBA_SOURCE_PATH}/bin/i386")	
 	cleanDir("#{SAMBA_SOURCE_PATH}/bin/universal")	
 
@@ -294,4 +320,5 @@ task :retrieve_samba do
 end
 
 task :build_all => [:retrieve_samba, :build_smb_armv7, :build_smb_armv7s, :build_smb_i386, :build_smb_universal, :copy_libs, :copy_headers] 
+#task :build_all => [:retrieve_samba, :build_smb_armv7, :build_smb_armv7s, :build_smb_armv64, :build_smb_i386, :build_smb_universal, :copy_libs, :copy_headers] 
 task :default => [:build_all]

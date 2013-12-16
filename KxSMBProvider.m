@@ -1925,7 +1925,7 @@ static void my_smbc_get_auth_data_fn(const char *srv,
     else
         workgroup[0] = 0;
     
-    NSLog(@"smb get auth for %s/%s -> %s/%s:%s", srv, shr, workgroup, username, password);
+    // NSLog(@"smb get auth for %s/%s -> %s/%s:%s", srv, shr, workgroup, username, password);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

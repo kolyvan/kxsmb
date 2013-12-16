@@ -1604,7 +1604,7 @@ static KxSMBProvider *gSmbProvider;
         if (error) return error;        
     }
         
-    Byte buffer[4096];
+    Byte buffer[32768];
     
     smbc_read_fn readFn = smbc_getFunctionRead(_context);
     NSMutableData *md = [NSMutableData data];

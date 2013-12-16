@@ -217,6 +217,15 @@ static KxSMBProvider *gSmbProvider;
     return gSmbProvider;
 }
 
++ (NSUInteger) smbTimeout:(NSUInteger)value
+{
+    static NSUInteger timeout = 10000;
+    if (value) {
+        timeout = value;
+    }
+    return timeout;
+}
+
 - (id) init
 {
     NSAssert(!gSmbProvider, @"singleton object");
@@ -253,7 +262,7 @@ static KxSMBProvider *gSmbProvider;
     smbc_setDebug(smbContext, 0);
 #endif
     
-	smbc_setTimeout(smbContext, 1000);
+	smbc_setTimeout(smbContext, [self smbTimeout:0]);
     smbc_setFunctionAuthData(smbContext, my_smbc_get_auth_data_fn);
         
 	if (!smbc_init_context(smbContext)) {

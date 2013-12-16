@@ -164,6 +164,9 @@ typedef void (^KxSMBBlock)(id result);
               newPath:(NSString *)newPath
                 block:(KxSMBBlock)block;
 
+// sets smb timeout if value > 0 and returns the current timeout
++ (NSUInteger) smbTimeout:(NSUInteger)value;
+
 @end
 
 @interface NSString (KxSMB)

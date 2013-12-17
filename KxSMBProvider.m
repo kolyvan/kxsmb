@@ -656,6 +656,7 @@ static KxSMBProvider *gSmbProvider;
 
 + (void) readSMBFile:(KxSMBItemFile *)smbFile
           fileHandle:(NSFileHandle *)fileHandle
+            progress:(KxSMBBlockProgress)progress
                block:(KxSMBBlock)block
 {
     [smbFile readDataOfLength:1024*1024
@@ -667,8 +668,14 @@ static KxSMBProvider *gSmbProvider;
              if (data.length) {
                  
                  [fileHandle writeData:data];
+                 
+                 if (progress) {
+                     progress(smbFile, fileHandle.offsetInFile);
+                 }
+                 
                  [self readSMBFile:smbFile
                         fileHandle:fileHandle
+                          progress:progress
                              block:block];
                  
              } else {
@@ -689,13 +696,17 @@ static KxSMBProvider *gSmbProvider;
 + (void) copySMBFile:(KxSMBItemFile *)smbFile
            localPath:(NSString *)localPath
            overwrite:(BOOL)overwrite
+            progress:(KxSMBBlockProgress)progress
                block:(KxSMBBlock)block
 {
     NSError *error = nil;
     NSFileHandle *fileHandle = [self createLocalFile:localPath overwrite:overwrite error:&error];
     if (fileHandle) {
         
-        [self readSMBFile:smbFile fileHandle:fileHandle block:block];
+        [self readSMBFile:smbFile
+               fileHandle:fileHandle
+                 progress:progress
+                    block:block];
         
     } else {
         
@@ -758,6 +769,7 @@ static KxSMBProvider *gSmbProvider;
             smbFolder:(NSString *)smbFolder
           localFolder:(NSString *)localFolder
             overwrite:(BOOL)overwrite
+             progress:(KxSMBBlockProgress)progress
                 block:(KxSMBBlock)block
 {
     KxSMBItem *item = smbItems[0];
@@ -780,6 +792,7 @@ static KxSMBProvider *gSmbProvider;
         [self copySMBFile:(KxSMBItemFile *)item
                  localPath:destPath
                 overwrite:overwrite
+                 progress:progress
                     block:^(id result)
          {
              if ([result isKindOfClass:[NSError class]]) {
@@ -794,6 +807,7 @@ static KxSMBProvider *gSmbProvider;
                               smbFolder:smbFolder
                             localFolder:localFolder
                               overwrite:overwrite
+                               progress:progress
                                   block:block];
                      
                  } else {
@@ -824,6 +838,7 @@ static KxSMBProvider *gSmbProvider;
                      smbFolder:smbFolder
                    localFolder:localFolder
                      overwrite:overwrite
+                      progress:progress
                          block:block];
             
         } else {
@@ -837,6 +852,7 @@ static KxSMBProvider *gSmbProvider;
 
 + (void) writeSMBFile:(KxSMBItemFile *)smbFile
            fileHandle:(NSFileHandle *)fileHandle
+             progress:(KxSMBBlockProgress)progress
                 block:(KxSMBBlock)block
 {
     NSData *data;
@@ -858,8 +874,13 @@ static KxSMBProvider *gSmbProvider;
             
             if ([result isKindOfClass:[NSNumber class]]) {
                 
+                if (progress) {
+                    progress(smbFile, fileHandle.offsetInFile);
+                }
+                
                 [self  writeSMBFile:smbFile
                          fileHandle:fileHandle
+                           progress:progress
                               block:block];
                 
                 return;
@@ -878,6 +899,7 @@ static KxSMBProvider *gSmbProvider;
 + (void) copyLocalFile:(NSString *)localPath
                smbPath:(NSString *)smbPath
              overwrite:(BOOL)overwrite
+              progress:(KxSMBBlockProgress)progress
                  block:(KxSMBBlock)block
 {
     KxSMBProvider *provider = [KxSMBProvider sharedSmbProvider];
@@ -895,7 +917,10 @@ static KxSMBProvider *gSmbProvider;
              
              if (fileHandle) {
                  
-                 [self writeSMBFile:result fileHandle:fileHandle block:block];
+                 [self writeSMBFile:result
+                         fileHandle:fileHandle
+                           progress:progress
+                              block:block];
                  
              } else {
                  
@@ -913,6 +938,7 @@ static KxSMBProvider *gSmbProvider;
             localFolder:(NSString *)localFolder
               smbFolder:(KxSMBItemTree *)smbFolder
               overwrite:(BOOL)overwrite
+               progress:(KxSMBBlockProgress)progress
                   block:(KxSMBBlock)block
 {
     NSString *path = [enumerator nextObject];
@@ -937,6 +963,7 @@ static KxSMBProvider *gSmbProvider;
                                   localFolder:localFolder
                                     smbFolder:smbFolder
                                     overwrite:overwrite
+                                     progress:progress
                                         block:block];
                      }
                  }];
@@ -953,6 +980,7 @@ static KxSMBProvider *gSmbProvider;
                 [self copyLocalFile:[localFolder stringByAppendingPathComponent:path]
                             smbPath:[destFolder stringByAppendingSMBPathComponent:path.lastPathComponent]
                           overwrite:overwrite
+                           progress:progress
                               block:^(id result)
                  {
                      if ([result isKindOfClass:[NSError class]]) {
@@ -965,6 +993,7 @@ static KxSMBProvider *gSmbProvider;
                                   localFolder:localFolder
                                     smbFolder:smbFolder
                                     overwrite:overwrite
+                                     progress:progress
                                         block:block];
                      }
                  }];
@@ -977,6 +1006,7 @@ static KxSMBProvider *gSmbProvider;
                  localFolder:localFolder
                    smbFolder:smbFolder
                    overwrite:overwrite
+                    progress:progress
                        block:block];
         
     } else {
@@ -1196,6 +1226,23 @@ static KxSMBProvider *gSmbProvider;
            localPath:(NSString *)localPath
            overwrite:(BOOL)overwrite
                block:(KxSMBBlock)block
+{
+    [self copySMBPath:smbPath localPath:localPath overwrite:overwrite progress:nil block:block];;
+}
+
+- (void) copyLocalPath:(NSString *)localPath
+               smbPath:(NSString *)smbPath
+             overwrite:(BOOL)overwrite
+                 block:(KxSMBBlock)block
+{
+    [self copyLocalPath:localPath smbPath:smbPath overwrite:overwrite progress:nil block:block];
+}
+
+- (void) copySMBPath:(NSString *)smbPath
+           localPath:(NSString *)localPath
+           overwrite:(BOOL)overwrite
+            progress:(KxSMBBlockProgress)progress
+               block:(KxSMBBlock)block
 {   
     [self fetchAtPath:smbPath block:^(id result) {
         
@@ -1204,6 +1251,7 @@ static KxSMBProvider *gSmbProvider;
             [KxSMBProvider copySMBFile:result
                              localPath:localPath
                              overwrite:overwrite
+                              progress:progress
                                  block:block];            
             
         } else if ([result isKindOfClass:[NSArray class]]) {
@@ -1248,6 +1296,7 @@ static KxSMBProvider *gSmbProvider;
                                                smbFolder:smbPath
                                              localFolder:localPath
                                                overwrite:overwrite
+                                                progress:progress
                                                    block:block];
                              
                          } else {
@@ -1267,6 +1316,7 @@ static KxSMBProvider *gSmbProvider;
                                   smbFolder:smbPath
                                 localFolder:localPath
                                   overwrite:overwrite
+                                   progress:progress
                                       block:block];                
                 
             }  else {
@@ -1282,10 +1332,10 @@ static KxSMBProvider *gSmbProvider;
     }];
 }
 
-
 - (void) copyLocalPath:(NSString *)localPath
                smbPath:(NSString *)smbPath
              overwrite:(BOOL)overwrite
+              progress:(KxSMBBlockProgress)progress
                  block:(KxSMBBlock)block
 {
     NSFileManager *fm = [[NSFileManager alloc] init];
@@ -1309,6 +1359,7 @@ static KxSMBProvider *gSmbProvider;
                                    localFolder:localPath
                                      smbFolder:result
                                      overwrite:overwrite
+                                      progress:progress
                                          block:block];
              } else {
                  
@@ -1321,6 +1372,7 @@ static KxSMBProvider *gSmbProvider;
         [KxSMBProvider copyLocalFile:localPath
                              smbPath:smbPath
                            overwrite:overwrite
+                            progress:progress
                                block:block];
     }
 }
@@ -1429,7 +1481,6 @@ static KxSMBProvider *gSmbProvider;
         });
     });
 }
-
 
 @end
 

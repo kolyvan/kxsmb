@@ -70,7 +70,10 @@ typedef enum {
     
 } KxSMBItemType;
 
+@class KxSMBItem;
+
 typedef void (^KxSMBBlock)(id result);
+typedef void (^KxSMBBlockProgress)(KxSMBItem *item, long transferred);
 
 @interface KxSMBItemStat : NSObject
 @property(readonly, nonatomic, strong) NSDate *lastModified;
@@ -155,6 +158,18 @@ typedef void (^KxSMBBlock)(id result);
 - (void) copyLocalPath:(NSString *)localPath
                smbPath:(NSString *)smbPath
              overwrite:(BOOL)overwrite
+                 block:(KxSMBBlock)block;
+
+- (void) copySMBPath:(NSString *)smbPath
+           localPath:(NSString *)localPath
+           overwrite:(BOOL)overwrite
+            progress:(KxSMBBlockProgress)progress
+               block:(KxSMBBlock)block;
+
+- (void) copyLocalPath:(NSString *)localPath
+               smbPath:(NSString *)smbPath
+             overwrite:(BOOL)overwrite
+              progress:(KxSMBBlockProgress)progress
                  block:(KxSMBBlock)block;
 
 - (void) removeFolderAtPath:(NSString *) path

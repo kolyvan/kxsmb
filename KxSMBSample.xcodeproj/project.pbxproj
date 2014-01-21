@@ -386,7 +386,6 @@
 				GCC_PREFIX_HEADER = "KxSMBSample/KxSMBSample-Prefix.pch";
 				HEADER_SEARCH_PATHS = "\"$(SRCROOT)/libs\"";
 				INFOPLIST_FILE = "KxSMBSample/KxSMBSample-Info.plist";
-				IPHONEOS_DEPLOYMENT_TARGET = 5.0;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					"\"$(SRCROOT)/libs\"",
@@ -404,7 +403,6 @@
 				GCC_PREFIX_HEADER = "KxSMBSample/KxSMBSample-Prefix.pch";
 				HEADER_SEARCH_PATHS = "\"$(SRCROOT)/libs\"";
 				INFOPLIST_FILE = "KxSMBSample/KxSMBSample-Info.plist";
-				IPHONEOS_DEPLOYMENT_TARGET = 5.0;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					"\"$(SRCROOT)/libs\"",

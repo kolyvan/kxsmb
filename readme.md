@@ -15,7 +15,7 @@ For this open console and type in
 ### Usage
 
 1. Drop files from kxsmb/libs folder in your project.
-2. Add libs: libz.dylib, libresolv.dylib and liconv.dylib.
+2. Add libs: libz.dylib, libresolv.dylib and libiconv.dylib.
 
 Fetching a folder content:
 

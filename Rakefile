@@ -74,7 +74,7 @@ end
 
 SDK_VERSION='7.1'
 IOS_MIN_VERSION='5.0'
-SAMBA_VERSION='4.0.13'
+SAMBA_VERSION='4.0.18'
 
 # samba source
 

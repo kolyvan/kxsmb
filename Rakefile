@@ -72,7 +72,7 @@ end
 
 # versions
 
-SDK_VERSION='7.0'
+SDK_VERSION='7.1'
 IOS_MIN_VERSION='5.0'
 SAMBA_VERSION='4.0.13'
 

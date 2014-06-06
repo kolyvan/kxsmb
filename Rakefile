@@ -72,9 +72,9 @@ end
 
 # versions
 
-SDK_VERSION='7.0'
+SDK_VERSION='7.1'
 IOS_MIN_VERSION='5.0'
-SAMBA_VERSION='4.0.13'
+SAMBA_VERSION='4.0.18'
 
 # samba source
 
@@ -104,7 +104,7 @@ ARM7_LD_FLAGS="-arch armv7 #{IOS_LD_FLAGS}"
 ARM7s_CF_FLAGS="-arch armv7s -mcpu=cortex-a8 -mfpu=neon #{IOS_CF_FLAGS} #{CF_FLAGS}"
 ARM7s_LD_FLAGS="-arch armv7s #{IOS_LD_FLAGS}"
 
-ARM64_CF_FLAGS="-arch arm64 #{IOS_CF_FLAGS} #{CF_FLAGS}"
+ARM64_CF_FLAGS="-arch arm64 -Wno-error=implicit-function-declaration #{IOS_CF_FLAGS} #{CF_FLAGS}"
 ARM64_LD_FLAGS="-arch arm64 #{IOS_LD_FLAGS}"
 
 I386_CF_FLAGS="-arch i386 #{CF_FLAGS}"
@@ -152,7 +152,7 @@ ARM7s_SMB_ARGS = [
 ]
 
 ARM64_SMB_ARGS = [
-'--host=aarch64-apple-darwin',
+'--host=arm-apple-darwin',
 ]
 
 I386_SMB_ARGS = [
@@ -258,8 +258,7 @@ task :build_smb_universal do
 	dest.mkdir unless dest.exist?
 
 	SMB_LIBS.each do |x|
-#		args = "-create -arch armv7 #{SAMBA_SOURCE_PATH}/bin/armv7/#{x}.a -arch armv7s #{SAMBA_SOURCE_PATH}/bin/armv7s/#{x}.a -arch arm64 #{SAMBA_SOURCE_PATH}/bin/arm64/#{x}.a -arch i386 #{SAMBA_SOURCE_PATH}/bin/i386/#{x}.a -output #{dest}/#{x}.a"
-		args = "-create -arch armv7 #{SAMBA_SOURCE_PATH}/bin/armv7/#{x}.a -arch armv7s #{SAMBA_SOURCE_PATH}/bin/armv7s/#{x}.a -arch i386 #{SAMBA_SOURCE_PATH}/bin/i386/#{x}.a -output #{dest}/#{x}.a"
+		args = "-create -arch armv7 #{SAMBA_SOURCE_PATH}/bin/armv7/#{x}.a -arch armv7s #{SAMBA_SOURCE_PATH}/bin/armv7s/#{x}.a -arch arm64 #{SAMBA_SOURCE_PATH}/bin/arm64/#{x}.a -arch i386 #{SAMBA_SOURCE_PATH}/bin/i386/#{x}.a -output #{dest}/#{x}.a"
 		system_or_exit "xcrun lipo #{args}"
 	end	
 end
@@ -319,6 +318,5 @@ task :retrieve_samba do
 
 end
 
-task :build_all => [:retrieve_samba, :build_smb_armv7, :build_smb_armv7s, :build_smb_i386, :build_smb_universal, :copy_libs, :copy_headers] 
-#task :build_all => [:retrieve_samba, :build_smb_armv7, :build_smb_armv7s, :build_smb_armv64, :build_smb_i386, :build_smb_universal, :copy_libs, :copy_headers] 
+task :build_all => [:retrieve_samba, :build_smb_armv7, :build_smb_armv7s, :build_smb_arm64, :build_smb_i386, :build_smb_universal, :copy_libs, :copy_headers] 
 task :default => [:build_all]

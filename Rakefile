@@ -110,7 +110,7 @@ ARM64_LD_FLAGS="-arch arm64 #{IOS_LD_FLAGS}"
 I386_CF_FLAGS="-arch i386 #{CF_FLAGS}"
 I386_LD_FLAGS='-arch i386'
 
-X86_64_CF_FLAGS="-arch x86_64 #{CF_FLAGS}"
+X86_64_CF_FLAGS="-arch x86_64 -Wno-error=implicit-function-declaration #{CF_FLAGS}"
 X86_64_LD_FLAGS='-arch x86_64'
 
 SMB_ARGS = [
@@ -322,7 +322,7 @@ task :retrieve_samba do
 		url = "#{SAMBA_BASE_URL}#{file}"
 
  		p "retrieving samba from #{url}"
-		system_or_exit "/usr/bin/curl -Ls --output #{file} #{url}"
+		system_or_exit "/usr/bin/curl -L --output #{file} #{url}"
 
 		p "extracting samba from archive"
 		system_or_exit "tar -zxf #{file}"

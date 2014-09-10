@@ -72,9 +72,9 @@ end
 
 # versions
 
-SDK_VERSION='7.1'
-IOS_MIN_VERSION='5.0'
-SAMBA_VERSION='4.0.18'
+SDK_VERSION='8.0'
+IOS_MIN_VERSION='6.0'
+SAMBA_VERSION='4.0.21'
 
 # samba source
 
@@ -132,6 +132,7 @@ SMB_ARGS = [
 
 SIM_SMB_ARGS = [
 '--enable-debug',
+'samba_cv_HAVE_FCNTL_LOCK=yes'
 ]
 
 IOS_SMB_ARGS = [

@@ -101,7 +101,7 @@
     UIViewController *vc = [[UINavigationController alloc] initWithRootViewController:_smbAuthViewController];
     
     [nav.topViewController presentViewController:vc
-                                        animated:YES
+                                        animated:NO
                                       completion:nil];
 }
 

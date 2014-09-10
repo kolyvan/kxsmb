@@ -110,6 +110,9 @@ ARM64_LD_FLAGS="-arch arm64 #{IOS_LD_FLAGS}"
 I386_CF_FLAGS="-arch i386 #{CF_FLAGS}"
 I386_LD_FLAGS='-arch i386'
 
+X86_64_CF_FLAGS="-arch x86_64 -Wno-error=implicit-function-declaration #{CF_FLAGS}"
+X86_64_LD_FLAGS='-arch x86_64'
+
 SMB_ARGS = [
 '--prefix=/private',
 '--disable-shared',
@@ -159,6 +162,10 @@ I386_SMB_ARGS = [
 '--host=i686-apple-darwin',
 ]
 
+X86_64_SMB_ARGS = [
+'--host=x86_64-apple-darwin',
+]
+
 # libs
 
 SMB_LIBS = [
@@ -197,6 +204,8 @@ def buildArch(arch)
 		args = mkArgs(IOS_SDK_PATH, IOS_SMB_ARGS, ARM7s_SMB_ARGS, ARM7s_CF_FLAGS, ARM7s_LD_FLAGS)
 	when 'arm64'	
 		args = mkArgs(IOS_SDK_PATH, IOS_SMB_ARGS, ARM64_SMB_ARGS, ARM64_CF_FLAGS, ARM64_LD_FLAGS)
+	when 'x86_64'
+		args = mkArgs(SIM_SDK_PATH, SIM_SMB_ARGS, X86_64_SMB_ARGS, X86_64_CF_FLAGS, X86_64_LD_FLAGS)
 	else
 		raise "Build failed: unknown arch: #{arch}"
 	end
@@ -251,6 +260,11 @@ task :build_smb_i386 do
 	buildArch('i386')	
 end
 
+desc "Build smb x86_64 libs"
+task :build_smb_x86_64 do	
+	buildArch('x86_64')	
+end
+
 desc "Build smb universal libs"
 task :build_smb_universal do	
 	
@@ -258,7 +272,7 @@ task :build_smb_universal do
 	dest.mkdir unless dest.exist?
 
 	SMB_LIBS.each do |x|
-		args = "-create -arch armv7 #{SAMBA_SOURCE_PATH}/bin/armv7/#{x}.a -arch armv7s #{SAMBA_SOURCE_PATH}/bin/armv7s/#{x}.a -arch arm64 #{SAMBA_SOURCE_PATH}/bin/arm64/#{x}.a -arch i386 #{SAMBA_SOURCE_PATH}/bin/i386/#{x}.a -output #{dest}/#{x}.a"
+		args = "-create -arch armv7 #{SAMBA_SOURCE_PATH}/bin/armv7/#{x}.a -arch armv7s #{SAMBA_SOURCE_PATH}/bin/armv7s/#{x}.a -arch arm64 #{SAMBA_SOURCE_PATH}/bin/arm64/#{x}.a -arch i386 #{SAMBA_SOURCE_PATH}/bin/i386/#{x}.a -arch x86_64 #{SAMBA_SOURCE_PATH}/bin/x86_64/#{x}.a -output #{dest}/#{x}.a"
 		system_or_exit "xcrun lipo #{args}"
 	end	
 end
@@ -290,7 +304,8 @@ task :clean do
 	cleanDir("#{SAMBA_SOURCE_PATH}/bin/armv7")
 	cleanDir("#{SAMBA_SOURCE_PATH}/bin/armv7s")
 	cleanDir("#{SAMBA_SOURCE_PATH}/bin/arm64")
-	cleanDir("#{SAMBA_SOURCE_PATH}/bin/i386")	
+	cleanDir("#{SAMBA_SOURCE_PATH}/bin/i386")
+	cleanDir("#{SAMBA_SOURCE_PATH}/bin/x86_64")	
 	cleanDir("#{SAMBA_SOURCE_PATH}/bin/universal")	
 
 	system_or_exit "cd #{SAMBA_SOURCE_PATH}; make clean"	
@@ -307,7 +322,7 @@ task :retrieve_samba do
 		url = "#{SAMBA_BASE_URL}#{file}"
 
  		p "retrieving samba from #{url}"
-		system_or_exit "/usr/bin/curl -Ls --output #{file} #{url}"
+		system_or_exit "/usr/bin/curl -L --output #{file} #{url}"
 
 		p "extracting samba from archive"
 		system_or_exit "tar -zxf #{file}"
@@ -318,5 +333,5 @@ task :retrieve_samba do
 
 end
 
-task :build_all => [:retrieve_samba, :build_smb_armv7, :build_smb_armv7s, :build_smb_arm64, :build_smb_i386, :build_smb_universal, :copy_libs, :copy_headers] 
+task :build_all => [:retrieve_samba, :build_smb_armv7, :build_smb_armv7s, :build_smb_arm64, :build_smb_i386, :build_smb_x86_64, :build_smb_universal, :copy_libs, :copy_headers] 
 task :default => [:build_all]

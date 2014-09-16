@@ -314,8 +314,7 @@ static KxSMBProvider *gSmbProvider;
             
             if (!dirent->name) continue;
             if (!strlen(dirent->name)) continue;
-            if (dirent->name[0] == '.') continue;
-            if (!strcmp(dirent->name, "IPC$")) continue;
+            if (!strcmp(dirent->name, ".") || !strcmp(dirent->name, "..") || !strcmp(dirent->name, "IPC$")) continue;
             
             NSString *name = [NSString stringWithUTF8String:dirent->name];
             

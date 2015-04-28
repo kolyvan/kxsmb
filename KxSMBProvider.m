@@ -132,7 +132,7 @@ static KxSMBError errnoToSMBErr(int err)
 @interface KxSMBItemStat ()
 @property(readwrite, nonatomic, strong) NSDate *lastModified;
 @property(readwrite, nonatomic, strong) NSDate *lastAccess;
-@property(readwrite, nonatomic) long size;
+@property(readwrite, nonatomic) long long size;
 @property(readwrite, nonatomic) long mode;
 @end
 
@@ -172,7 +172,7 @@ static KxSMBError errnoToSMBErr(int err)
         case KxSMBItemTypeLink:      stype = @"link"; break;
     }
     
-    return [NSString stringWithFormat:@"<smb %@ '%@' %ld>",
+    return [NSString stringWithFormat:@"<smb %@ '%@' %lld>",
             stype, _path, _stat.size];
 }
 

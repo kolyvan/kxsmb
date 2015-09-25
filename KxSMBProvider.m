@@ -493,7 +493,7 @@ static KxSMBProvider *gSmbProvider;
     if (r < 0) {
         
         int err = errno;
-        if (err == EISDIR) {
+        if (err == EISDIR || err == EINVAL) {
             
             r = smbc_getFunctionRmdir(smbContext)(smbContext, path.UTF8String);
             if (r < 0) {

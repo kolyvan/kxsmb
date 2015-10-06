@@ -382,6 +382,7 @@
 		87085FB01705D46C009CD258 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				DEBUG_INFORMATION_FORMAT = dwarf;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "KxSMBSample/KxSMBSample-Prefix.pch";
 				HEADER_SEARCH_PATHS = "\"$(SRCROOT)/libs\"";
@@ -400,6 +401,7 @@
 		87085FB11705D46C009CD258 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				DEBUG_INFORMATION_FORMAT = dwarf;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "KxSMBSample/KxSMBSample-Prefix.pch";
 				HEADER_SEARCH_PATHS = "\"$(SRCROOT)/libs\"";

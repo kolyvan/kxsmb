@@ -92,7 +92,7 @@ EXT_INCLUDE_PATH='tmp/include'
 
 # configure arguments
 
-CF_FLAGS='-pipe -Wno-trigraphs -fpascal-strings -Os -Wreturn-type -Wunused-variable -fmessage-length=0 -gdwarf-2'
+CF_FLAGS='-pipe -Wno-trigraphs -fpascal-strings -Os -fembed-bitcode -g'
 
 IOS_CF_FLAGS='-ftree-vectorize'
 IOS_LD_FLAGS=''

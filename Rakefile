@@ -72,7 +72,7 @@ end
 
 # versions
 
-IOS_MIN_VERSION='6.0'
+IOS_MIN_VERSION='8.0'
 SAMBA_VERSION='4.0.26'
 
 # samba source

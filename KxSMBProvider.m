@@ -262,7 +262,7 @@ static KxSMBProvider *gSmbProvider;
     smbc_setDebug(smbContext, 0);
 #endif
     
-	smbc_setTimeout(smbContext, [self smbTimeout:0]);
+	smbc_setTimeout(smbContext, (int)[self smbTimeout:0]);
     smbc_setFunctionAuthData(smbContext, my_smbc_get_auth_data_fn);
         
 	if (!smbc_init_context(smbContext)) {
@@ -1672,7 +1672,7 @@ static KxSMBProvider *gSmbProvider;
     
     while (bytesToRead > 0) {
         
-        int r = readFn(_context, _file, buffer, MIN(bytesToRead, sizeof(buffer)));
+        ssize_t r = readFn(_context, _file, buffer, MIN(bytesToRead, sizeof(buffer)));
         
         if (r == 0)
             break;
@@ -1707,7 +1707,7 @@ static KxSMBProvider *gSmbProvider;
     
     while (1) {
         
-        int r = readFn(_context, _file, buffer, sizeof(buffer));
+        ssize_t r = readFn(_context, _file, buffer, sizeof(buffer));
         
         if (r == 0)
             break;
@@ -1735,7 +1735,7 @@ static KxSMBProvider *gSmbProvider;
         if (error) return error;
     }
     
-    off_t r = smbc_getFunctionLseek(_context)(_context, _file, offset, whence);
+    off_t r = smbc_getFunctionLseek(_context)(_context, _file, offset, (int)whence);
     if (r < 0) {
         const int err = errno;
         return mkKxSMBError(errnoToSMBErr(err),
@@ -1758,7 +1758,7 @@ static KxSMBProvider *gSmbProvider;
     
     while (bytesToWrite > 0) {
         
-        int r = writeFn(_context, _file, bytes, bytesToWrite);
+        ssize_t r = writeFn(_context, _file, bytes, bytesToWrite);
         if (r == 0)
             break;
         

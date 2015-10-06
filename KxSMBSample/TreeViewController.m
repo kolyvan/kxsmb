@@ -256,7 +256,7 @@
 
 - (void) actionCopyFile:(id)sender
 {
-    NSString *name = [NSString stringWithFormat:@"%d.tmp", (NSUInteger)[NSDate timeIntervalSinceReferenceDate]];
+    NSString *name = [NSString stringWithFormat:@"%u.tmp", (unsigned)[NSDate timeIntervalSinceReferenceDate]];
     NSString *path = [_path stringByAppendingSMBPathComponent:name];
     
     KxSMBProvider *provider = [KxSMBProvider sharedSmbProvider];

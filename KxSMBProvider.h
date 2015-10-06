@@ -78,8 +78,8 @@ typedef void (^KxSMBBlockProgress)(KxSMBItem *item, long transferred);
 @interface KxSMBItemStat : NSObject
 @property(readonly, nonatomic, strong) NSDate *lastModified;
 @property(readonly, nonatomic, strong) NSDate *lastAccess;
-@property(readonly, nonatomic) long size;
-@property(readonly, nonatomic) long mode;
+@property(readonly, nonatomic) SInt64 size;
+@property(readonly, nonatomic) UInt16 mode;
 @end
 
 @interface KxSMBItem : NSObject

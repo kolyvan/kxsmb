@@ -331,7 +331,7 @@
     } else {
         
         cell.accessoryType = UITableViewCellAccessoryNone;
-        cell.detailTextLabel.text = [NSString stringWithFormat:@"%ld", item.stat.size];
+        cell.detailTextLabel.text = [NSString stringWithFormat:@"%lld", item.stat.size];
     }
     
     return cell;

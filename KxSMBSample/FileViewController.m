@@ -140,7 +140,7 @@
     [super viewWillAppear:animated];
     
     _nameLabel.text = _smbFile.path;
-    _sizeLabel.text = [NSString stringWithFormat:@"size: %ld", _smbFile.stat.size];
+    _sizeLabel.text = [NSString stringWithFormat:@"size: %lld", _smbFile.stat.size];
     _dateLabel.text = [NSString stringWithFormat:@"date: %@", _smbFile.stat.lastModified];
 }
 

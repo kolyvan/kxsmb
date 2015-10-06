@@ -72,10 +72,9 @@
     return self;
 }
 
-- (void)loadView
+- (void)viewDidLoad
 {
-
-    [super loadView];
+    [super viewDidLoad];
     
     if(NSClassFromString(@"UIRefreshControl")) {
         UIRefreshControl *refreshControl = [[UIRefreshControl alloc] init];
@@ -99,12 +98,6 @@
                                                     target:self
                                                     action:@selector(actionCopyFile:)],
       ];
-
-}
-
-- (void)viewDidLoad
-{
-    [super viewDidLoad];
 }
 
 - (void)didReceiveMemoryWarning
@@ -124,6 +117,9 @@
 }
 
 - (void)viewDidAppear:(BOOL)animated {
+    
+    [super viewDidAppear:animated];
+    
     if (self.navigationController.childViewControllers.count == 1 && _needNewPath) {
         _needNewPath = NO;
         [self requestNewPath];
@@ -175,7 +171,8 @@
     }];
 }
 
-- (void) requestNewPath {
+- (void) requestNewPath
+{
     UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Connect to Host"
                                                     message:@"\n\n"
                                                    delegate:self

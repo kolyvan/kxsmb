@@ -40,6 +40,7 @@
 
 @implementation FileViewController {
     
+    UIView          *_container;
     UILabel         *_nameLabel;
     UILabel         *_sizeLabel;
     UILabel         *_dateLabel;
@@ -65,13 +66,18 @@
     [self closeFiles];
 }
 
-- (void) loadView
+- (void)viewDidLoad
 {
-    self.view = [[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]];
-    self.view.backgroundColor = [UIColor whiteColor];
+    [super viewDidLoad];
     
-    const float W = self.view.bounds.size.width;
-        
+    const CGSize size = self.view.bounds.size;
+    const CGFloat W = size.width;
+    
+    _container = [[UIView alloc] initWithFrame:(CGRect){0,0,size}];
+    _container.autoresizingMask = UIViewAutoresizingNone;
+    _container.backgroundColor = [UIColor whiteColor];
+    [self.view addSubview:_container];
+    
     _nameLabel = [[UILabel alloc] initWithFrame:CGRectMake(10, 10, W - 20, 30)];
     _nameLabel.font = [UIFont boldSystemFontOfSize:16];
     _nameLabel.textColor = [UIColor darkTextColor];
@@ -111,23 +117,22 @@
     _downloadProgress = [[UIProgressView alloc] initWithProgressViewStyle:UIProgressViewStyleDefault];
     _downloadProgress.frame = CGRectMake(10, 190, W - 20, 30);
     _downloadProgress.hidden = YES;
-
-    [self.view addSubview:_nameLabel];
-    [self.view addSubview:_sizeLabel];
-    [self.view addSubview:_dateLabel];
-    [self.view addSubview:_downloadButton];
-    [self.view addSubview:_downloadLabel];
-    [self.view addSubview:_downloadProgress];    
+    
+    [_container addSubview:_nameLabel];
+    [_container addSubview:_sizeLabel];
+    [_container addSubview:_dateLabel];
+    [_container addSubview:_downloadButton];
+    [_container addSubview:_downloadLabel];
+    [_container addSubview:_downloadProgress];
 }
 
-- (void)viewDidLoad
+- (void) viewDidLayoutSubviews
 {
-    [super viewDidLoad];
-}
-
-- (void)didReceiveMemoryWarning
-{
-    [super didReceiveMemoryWarning];
+    [super viewDidLayoutSubviews];
+    
+    const CGSize size = self.view.bounds.size;
+    const CGFloat top = [self.topLayoutGuide length];
+    _container.frame = (CGRect){0, top, size.width, size.height - top};
 }
 
 - (void)viewWillAppear:(BOOL)animated

@@ -39,6 +39,7 @@
 
 @implementation SmbAuthViewController {
 
+    UIView      *_container;
     UILabel     *_pathLabel;
     UITextField *_workgroupField;
     UITextField *_usernameField;
@@ -54,30 +55,24 @@
     return self;
 }
 
-- (void) loadView
+- (void)viewDidLoad
 {
-    CGRect frame = [[UIScreen mainScreen] applicationFrame];    
-    const CGFloat W = frame.size.width;
-    const CGFloat H = frame.size.height;
+    [super viewDidLoad];
     
-    self.view = [[UIView alloc] initWithFrame:CGRectMake(0, 0, W, H)];
-    self.view.backgroundColor = [UIColor whiteColor];
+    const CGSize size = self.view.bounds.size;
+    const CGFloat W = size.width;
+    //const CGFloat H = size.height;
     
-    /*
-    UILabel *titleLabel;
-    titleLabel = [[UILabel alloc] initWithFrame:CGRectMake(10,10,W-20,30)];
-    titleLabel.backgroundColor = [UIColor clearColor];
-    titleLabel.textColor = [UIColor redColor];
-    titleLabel.font = [UIFont boldSystemFontOfSize:18];
-    titleLabel.text = NSLocalizedString(@"Authorization required", nil);
-    [self.view addSubview:titleLabel];
-    */
+    _container = [[UIView alloc] initWithFrame:(CGRect){0,0,size}];
+    _container.autoresizingMask = UIViewAutoresizingNone;
+    _container.backgroundColor = [UIColor whiteColor];
+    [self.view addSubview:_container];
     
     _pathLabel = [[UILabel alloc] initWithFrame:CGRectMake(10,10,W-20,30)];
     _pathLabel.backgroundColor = [UIColor clearColor];
     _pathLabel.textColor = [UIColor darkTextColor];
     _pathLabel.font = [UIFont systemFontOfSize:16];
-    [self.view addSubview:_pathLabel];
+    [_container addSubview:_pathLabel];
     
     UILabel *workgroupLabel;
     workgroupLabel = [[UILabel alloc] initWithFrame:CGRectMake(10,40,90,30)];
@@ -85,7 +80,7 @@
     workgroupLabel.textColor = [UIColor darkTextColor];
     workgroupLabel.font = [UIFont boldSystemFontOfSize:16];
     workgroupLabel.text = NSLocalizedString(@"Workgroup", nil);
-    [self.view addSubview:workgroupLabel];
+    [_container addSubview:workgroupLabel];
     
     UILabel *usernameLabel;
     usernameLabel = [[UILabel alloc] initWithFrame:CGRectMake(10,90,90,30)];
@@ -93,15 +88,15 @@
     usernameLabel.textColor = [UIColor darkTextColor];
     usernameLabel.font = [UIFont boldSystemFontOfSize:16];
     usernameLabel.text = NSLocalizedString(@"Username", nil);
-    [self.view addSubview:usernameLabel];
+    [_container addSubview:usernameLabel];
     
     UILabel *passwordLabel;
     passwordLabel = [[UILabel alloc] initWithFrame:CGRectMake(10,140,90,30)];
     passwordLabel.backgroundColor = [UIColor clearColor];
     passwordLabel.textColor =  [UIColor darkTextColor];
     passwordLabel.font = [UIFont boldSystemFontOfSize:16];
-    passwordLabel.text = NSLocalizedString(@"Password", nil);    
-    [self.view addSubview:passwordLabel];
+    passwordLabel.text = NSLocalizedString(@"Password", nil);
+    [_container addSubview:passwordLabel];
     
     _workgroupField = [[UITextField alloc] initWithFrame:CGRectMake(100, 41, W - 110, 30)];
     _workgroupField.autocapitalizationType = UITextAutocapitalizationTypeNone;
@@ -116,10 +111,10 @@
     _workgroupField.returnKeyType = UIReturnKeyNext;
     
     [_workgroupField addTarget:self
-                    action:@selector(textFieldDoneEditing:)
-          forControlEvents:UIControlEventEditingDidEndOnExit];
+                        action:@selector(textFieldDoneEditing:)
+              forControlEvents:UIControlEventEditingDidEndOnExit];
     
-    [self.view addSubview:_workgroupField];
+    [_container addSubview:_workgroupField];
     
     _usernameField = [[UITextField alloc] initWithFrame:CGRectMake(100, 91, W - 110, 30)];
     _usernameField.autocapitalizationType = UITextAutocapitalizationTypeNone;
@@ -134,10 +129,10 @@
     _usernameField.returnKeyType = UIReturnKeyDone;
     
     [_usernameField addTarget:self
-                   action:@selector(textFieldDoneEditing:)
-         forControlEvents:UIControlEventEditingDidEndOnExit];
+                       action:@selector(textFieldDoneEditing:)
+             forControlEvents:UIControlEventEditingDidEndOnExit];
     
-    [self.view addSubview:_usernameField];
+    [_container addSubview:_usernameField];
     
     _passwordField = [[UITextField alloc] initWithFrame:CGRectMake(100, 141, W - 110, 30)];
     _passwordField.autocapitalizationType = UITextAutocapitalizationTypeNone;
@@ -150,18 +145,14 @@
     _passwordField.borderStyle = UITextBorderStyleRoundedRect;
     _passwordField.backgroundColor = [UIColor lightGrayColor];
     _passwordField.returnKeyType = UIReturnKeyDone;
-    _passwordField.secureTextEntry = YES;    
+    _passwordField.secureTextEntry = YES;
     
     [_passwordField addTarget:self
                        action:@selector(textFieldDoneEditing:)
              forControlEvents:UIControlEventEditingDidEndOnExit];
     
-    [self.view addSubview:_passwordField];
-}
+    [_container addSubview:_passwordField];
 
-- (void)viewDidLoad
-{
-    [super viewDidLoad];
     
     UIBarButtonItem *bbi;
     
@@ -178,9 +169,13 @@
     self.navigationItem.leftBarButtonItem = bbi;
 }
 
-- (void)didReceiveMemoryWarning
+- (void) viewDidLayoutSubviews
 {
-    [super didReceiveMemoryWarning];
+    [super viewDidLayoutSubviews];
+    
+    const CGSize size = self.view.bounds.size;
+    const CGFloat top = [self.topLayoutGuide length];
+    _container.frame = (CGRect){0, top, size.width, size.height - top};
 }
 
 - (void) viewWillAppear:(BOOL)animated

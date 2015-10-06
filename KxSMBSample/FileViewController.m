@@ -34,8 +34,9 @@
 
 #import "FileViewController.h"
 #import "KxSMBProvider.h"
+#import <QuickLook/QuickLook.h>
 
-@interface FileViewController ()
+@interface FileViewController () <QLPreviewControllerDelegate, QLPreviewControllerDataSource>
 @end
 
 @implementation FileViewController {
@@ -261,16 +262,22 @@
                 [_fileHandle writeData:data];
                 
                 if(_downloadedBytes == _smbFile.stat.size) {
+                    
                     [self closeFiles];
                     
-                    // If file is recognized as an image, creates an Image View to show it
-                    if([@[@"png",@"jpg",@"gif"] containsObject:[[_smbFile.path pathExtension] lowercaseString]]) {
-                        UIImageView *imageView = [[UIImageView alloc] initWithImage:[UIImage imageWithContentsOfFile:_filePath]];
-                        imageView.frame = CGRectMake(0, 220, self.view.frame.size.width, self.view.frame.size.height-220);
-                        imageView.contentMode = UIViewContentModeScaleAspectFit;
-                        [self.view addSubview:imageView];
+                    [_downloadButton setTitle:@"Done" forState:UIControlStateNormal];
+                    _downloadButton.enabled = NO;
+                    
+                    if ([QLPreviewController canPreviewItem:[NSURL fileURLWithPath:_filePath]]) {
+                        
+                        QLPreviewController *vc = [QLPreviewController new];
+                        vc.delegate = self;
+                        vc.dataSource = self;
+                        [self.navigationController pushViewController:vc animated:YES];
                     }
+                    
                 } else {
+                    
                     [self download];
                 }
             }
@@ -293,6 +300,18 @@
             [p updateDownloadStatus:result];
         }
     }];
+}
+
+#pragma mark - QLPreviewController
+
+- (NSInteger)numberOfPreviewItemsInPreviewController:(QLPreviewController *)controller
+{
+    return 1;
+}
+
+- (id <QLPreviewItem>)previewController:(QLPreviewController *)controller previewItemAtIndex:(NSInteger)index
+{
+    return [NSURL fileURLWithPath:_filePath];
 }
 
 @end

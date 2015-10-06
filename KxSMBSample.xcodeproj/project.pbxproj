@@ -30,6 +30,7 @@
 		871CC5751774589C00EDD76D /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 87085F8E1705D46C009CD258 /* Foundation.framework */; };
 		871CC580177458AD00EDD76D /* KxSMBProvider.m in Sources */ = {isa = PBXBuildFile; fileRef = 87085FB31705D494009CD258 /* KxSMBProvider.m */; };
 		EAC6EFEE179A4133005AC807 /* libtevent.a in Frameworks */ = {isa = PBXBuildFile; fileRef = EAC6EFED179A4133005AC807 /* libtevent.a */; };
+		F992AF0C1BC3D3CC0063A4B3 /* QuickLook.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F992AF0B1BC3D3CC0063A4B3 /* QuickLook.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -79,6 +80,7 @@
 		871CC5741774589C00EDD76D /* libKxSMB.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libKxSMB.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		871CC5781774589C00EDD76D /* KxSMB-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "KxSMB-Prefix.pch"; sourceTree = "<group>"; };
 		EAC6EFED179A4133005AC807 /* libtevent.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libtevent.a; path = libs/libtevent.a; sourceTree = "<group>"; };
+		F992AF0B1BC3D3CC0063A4B3 /* QuickLook.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuickLook.framework; path = System/Library/Frameworks/QuickLook.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -86,6 +88,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F992AF0C1BC3D3CC0063A4B3 /* QuickLook.framework in Frameworks */,
 				87085FCD1705D509009CD258 /* libresolv.dylib in Frameworks */,
 				87085FCB1705D503009CD258 /* libiconv.dylib in Frameworks */,
 				87085FC91705D4FD009CD258 /* libz.dylib in Frameworks */,
@@ -136,6 +139,7 @@
 		87085F8B1705D46C009CD258 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				F992AF0B1BC3D3CC0063A4B3 /* QuickLook.framework */,
 				87085FCC1705D509009CD258 /* libresolv.dylib */,
 				87085FCA1705D503009CD258 /* libiconv.dylib */,
 				87085FC81705D4FD009CD258 /* libz.dylib */,

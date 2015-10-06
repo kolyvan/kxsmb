@@ -73,7 +73,7 @@ typedef enum {
 @class KxSMBItem;
 
 typedef void (^KxSMBBlock)(id result);
-typedef void (^KxSMBBlockProgress)(KxSMBItem *item, long transferred);
+typedef void (^KxSMBBlockProgress)(KxSMBItem *item, long transferred, BOOL *stop);
 
 @interface KxSMBItemStat : NSObject
 @property(readonly, nonatomic, strong) NSDate *lastModified;
@@ -136,7 +136,7 @@ typedef void (^KxSMBBlockProgress)(KxSMBItem *item, long transferred);
 
 @property (readwrite, nonatomic, weak) id<KxSMBProviderDelegate> delegate;
 
-+ (id) sharedSmbProvider;
++ (instancetype) sharedSmbProvider;
 
 - (void) fetchAtPath: (NSString *) path block: (KxSMBBlock) block;
 - (id) fetchAtPath: (NSString *) path;

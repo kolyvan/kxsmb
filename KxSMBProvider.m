@@ -208,7 +208,7 @@ static KxSMBProvider *gSmbProvider;
     dispatch_queue_t    _dispatchQueue;
 }
 
-+ (id) sharedSmbProvider
++ (instancetype) sharedSmbProvider
 {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
@@ -669,7 +669,26 @@ static KxSMBProvider *gSmbProvider;
                  [fileHandle writeData:data];
                  
                  if (progress) {
-                     progress(smbFile, fileHandle.offsetInFile);
+                     
+                     BOOL stop = NO;
+                     progress(smbFile, fileHandle.offsetInFile, &stop);
+                     if (stop) {
+                         
+                         // remove the local file from a disk
+                         NSString *filePath;
+                         char buffer[PATH_MAX] = {0};
+                         if (fcntl(fileHandle.fileDescriptor, F_GETPATH, buffer) != -1) {
+                             filePath = [[NSString alloc] initWithUTF8String:buffer];
+                         }
+                         //[fileHandle truncateFileAtOffset:0];
+                         [fileHandle closeFile];
+                         if (filePath.length) {
+                             [[NSFileManager defaultManager] removeItemAtPath:filePath error:nil];
+                         }
+                         
+                         block(nil);
+                         return;
+                     }
                  }
                  
                  [self readSMBFile:smbFile
@@ -874,7 +893,24 @@ static KxSMBProvider *gSmbProvider;
             if ([result isKindOfClass:[NSNumber class]]) {
                 
                 if (progress) {
-                    progress(smbFile, fileHandle.offsetInFile);
+                    
+                    BOOL stop = NO;
+                    progress(smbFile, fileHandle.offsetInFile, &stop);
+                    if (stop) {
+                        
+                        [fileHandle closeFile];
+                        
+                        // remove the smbfile from a share
+                        NSString *smbPath = smbFile.path;
+                        [smbFile close];
+                        KxSMBProvider *provider = [KxSMBProvider sharedSmbProvider];
+                        [provider dispatchAsync:^{
+                            [KxSMBProvider removeAtPath:smbPath];
+                        }];
+                        
+                        block(nil);
+                        return;
+                    }
                 }
                 
                 [self  writeSMBFile:smbFile

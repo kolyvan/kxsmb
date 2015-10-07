@@ -48,7 +48,7 @@ static NSString * KxSMBErrorMessage (KxSMBError errorCode)
         case KxSMBErrorInvalidArg:          return NSLocalizedString(@"SMB Invalid argument", nil);
         case KxSMBErrorInvalidProtocol:     return NSLocalizedString(@"SMB Invalid protocol", nil);
         case KxSMBErrorOutOfMemory:         return NSLocalizedString(@"SMB Out of memory", nil);
-        case KxSMBErrorPermissionDenied:    return NSLocalizedString(@"SMB Permission denied", nil);
+        case KxSMBErrorAccessDenied:        return NSLocalizedString(@"SMB Access Denied", nil);
         case KxSMBErrorInvalidPath:         return NSLocalizedString(@"SMB No such file or directory", nil);
         case KxSMBErrorPathIsNotDir:        return NSLocalizedString(@"SMB Not a directory", nil);
         case KxSMBErrorPathIsDir:           return NSLocalizedString(@"SMB Is a directory", nil);
@@ -57,7 +57,8 @@ static NSString * KxSMBErrorMessage (KxSMBError errorCode)
         case KxSMBErrorItemAlreadyExists:   return NSLocalizedString(@"SMB Item already exists", nil);
         case KxSMBErrorDirNotEmpty:         return NSLocalizedString(@"SMB Directory not empty", nil);
         case KxSMBErrorFileIO:              return NSLocalizedString(@"SMB File I/O failure", nil);
-
+        case KxSMBErrorConnRefused:         return NSLocalizedString(@"SMB Connection refused", nil);
+        case KxSMBErrorOpNotPermited:       return NSLocalizedString(@"SMB Operation not permitted", nil);
     }
 }
 
@@ -94,17 +95,18 @@ static NSError * mkKxSMBError(KxSMBError error, NSString *format, ...)
 static KxSMBError errnoToSMBErr(int err)
 {
     switch (err) {
-        case EINVAL:    return KxSMBErrorInvalidArg;
-        case ENOMEM:    return KxSMBErrorOutOfMemory;
-        case EACCES:    return KxSMBErrorPermissionDenied;
-        case ENOENT:    return KxSMBErrorInvalidPath;
-        case ENOTDIR:   return KxSMBErrorPathIsNotDir;
-        case EISDIR:    return KxSMBErrorPathIsDir;
-        case EPERM:     return KxSMBErrorWorkgroupNotFound;
-        case ENODEV:    return KxSMBErrorShareDoesNotExist;
-        case EEXIST:    return KxSMBErrorItemAlreadyExists;
-        case ENOTEMPTY: return KxSMBErrorDirNotEmpty;
-        default:        return KxSMBErrorUnknown;
+        case EINVAL:        return KxSMBErrorInvalidArg;
+        case ENOMEM:        return KxSMBErrorOutOfMemory;
+        case EACCES:        return KxSMBErrorAccessDenied;
+        case ENOENT:        return KxSMBErrorInvalidPath;
+        case ENOTDIR:       return KxSMBErrorPathIsNotDir;
+        case EISDIR:        return KxSMBErrorPathIsDir;
+        case EPERM:         return KxSMBErrorOpNotPermited;
+        case ENODEV:        return KxSMBErrorShareDoesNotExist;
+        case EEXIST:        return KxSMBErrorItemAlreadyExists;
+        case ENOTEMPTY:     return KxSMBErrorDirNotEmpty;
+        case ECONNREFUSED:  return KxSMBErrorConnRefused;
+        default:            return KxSMBErrorUnknown;
     }    
 }
 
@@ -277,14 +279,43 @@ static KxSMBProvider *gSmbProvider;
 + (SMBCCTX *) openSmbContext
 {    
     SMBCCTX *smbContext = smbc_new_context();
-	if (!smbContext)
+    if (!smbContext) {
 		return NULL;
+    }
     
+	if (!smbc_init_context(smbContext)) {
+		smbc_free_context(smbContext, NO);
+		return NULL;
+	}
+    
+    smbc_setFunctionAuthData(smbContext, my_smbc_get_auth_data_fn);
+    [self configureSmbContext:smbContext];
+    
+    smbc_set_context(smbContext);
+    return smbContext;
+}
+
++ (void) closeSmbContext: (SMBCCTX *) smbContext
+{
+    if (smbContext) {
+        
+        // fixes warning: no talloc stackframe at libsmb/cliconnect.c:2637, leaking memory
+        TALLOC_CTX *frame = talloc_stackframe();
+        smbc_getFunctionPurgeCachedServers(smbContext)(smbContext);
+        TALLOC_FREE(frame);
+        
+        smbc_free_context(smbContext, NO);
+    }
+}
+
++ (void) configureSmbContext: (SMBCCTX *) smbContext
+{
     KxSMBConfig *cfg = [KxSMBProvider sharedSmbProvider].config;
     if (cfg) {
         
         smbc_setTimeout(smbContext,  (int)cfg.timeout);
         smbc_setDebug(smbContext, (int)cfg.debugLevel);
+        
         smbc_setOptionDebugToStderr(smbContext, (smbc_bool)cfg.debugToStderr);
         smbc_setOptionFullTimeNames(smbContext, (smbc_bool)cfg.fullTimeNames);
         smbc_setOptionOpenShareMode(smbContext, (smbc_share_mode)cfg.shareMode);
@@ -307,30 +338,7 @@ static KxSMBProvider *gSmbProvider;
         }
         if (cfg.username.length) {
             smbc_setUser(smbContext, (char *)cfg.username.UTF8String);
-        }
-    }
-    
-    smbc_setFunctionAuthData(smbContext, my_smbc_get_auth_data_fn);
-        
-	if (!smbc_init_context(smbContext)) {
-		smbc_free_context(smbContext, NO);
-		return NULL;
-	}
-    
-    smbc_set_context(smbContext);
-    return smbContext;
-}
-
-+ (void) closeSmbContext: (SMBCCTX *) smbContext
-{
-    if (smbContext) {
-        
-        // fixes warning: no talloc stackframe at libsmb/cliconnect.c:2637, leaking memory
-        TALLOC_CTX *frame = talloc_stackframe();
-        smbc_getFunctionPurgeCachedServers(smbContext)(smbContext);
-        TALLOC_FREE(frame);
-        
-        smbc_free_context(smbContext, NO);
+        }        
     }
 }
 
@@ -513,7 +521,7 @@ static KxSMBProvider *gSmbProvider;
                                                 path:path
                                                 stat:stat];
         }
-    }    
+    }
     
     [self closeSmbContext:smbContext];
     return result;
@@ -1566,7 +1574,7 @@ static KxSMBProvider *gSmbProvider;
 }
 
 #if 0
-+ (void) dumpSmbcOptions
++ (void) dumpSmbcOptions:(SMBCCTX *)smbContext
 {
     NSLog(@"Debug: %d", smbc_getDebug(smbContext));
     NSLog(@"NetbiosName: %s", smbc_getNetbiosName(smbContext));

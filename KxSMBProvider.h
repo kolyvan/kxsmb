@@ -41,7 +41,7 @@ typedef enum {
     KxSMBErrorInvalidArg,
     KxSMBErrorInvalidProtocol,
     KxSMBErrorOutOfMemory,
-    KxSMBErrorPermissionDenied,    
+    KxSMBErrorAccessDenied,
     KxSMBErrorInvalidPath,
     KxSMBErrorPathIsNotDir,
     KxSMBErrorPathIsDir,
@@ -50,6 +50,8 @@ typedef enum {
     KxSMBErrorItemAlreadyExists,
     KxSMBErrorDirNotEmpty,
     KxSMBErrorFileIO,
+    KxSMBErrorConnRefused,
+    KxSMBErrorOpNotPermited,
 
 } KxSMBError;
 

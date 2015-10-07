@@ -33,8 +33,6 @@
 
 #import <Foundation/Foundation.h>
 
-#define SAMBA_DEBUG_LEVEL 2
-
 extern NSString * const KxSMBErrorDomain;
 
 typedef enum {
@@ -132,9 +130,50 @@ typedef void (^KxSMBBlockProgress)(KxSMBItem *item, long transferred, BOOL *stop
                        withShare: (NSString *) share;
 @end
 
+// smbc_share_mode
+typedef NS_ENUM(NSUInteger, KxSMBConfigShareMode) {
+    
+    KxSMBConfigShareModeDenyDOS     = 0,
+    KxSMBConfigShareModeDenyAll     = 1,
+    KxSMBConfigShareModeDenyWrite   = 2,
+    KxSMBConfigShareModeDenyRead    = 3,
+    KxSMBConfigShareModeDenyNone    = 4,
+    KxSMBConfigShareModeDenyFCB     = 7,
+};
+
+// smbc_smb_encrypt_level
+typedef NS_ENUM(NSUInteger, KxSMBConfigEncryptLevel) {
+    
+    KxSMBConfigEncryptLevelNone      = 0,
+    KxSMBConfigEncryptLevelRequest   = 1,
+    KxSMBConfigEncryptLevelRequire   = 2,
+};
+
+@interface KxSMBConfig : NSObject
+@property (readwrite, nonatomic) NSUInteger timeout;
+@property (readwrite, nonatomic) NSUInteger debugLevel;
+@property (readwrite, nonatomic) BOOL debugToStderr;
+@property (readwrite, nonatomic) BOOL fullTimeNames;
+@property (readwrite, nonatomic) KxSMBConfigShareMode shareMode;
+@property (readwrite, nonatomic) KxSMBConfigEncryptLevel encryptionLevel;
+@property (readwrite, nonatomic) BOOL caseSensitive;
+@property (readwrite, nonatomic) NSUInteger browseMaxLmbCount;
+@property (readwrite, nonatomic) BOOL urlEncodeReaddirEntries;
+@property (readwrite, nonatomic) BOOL oneSharePerServer;
+@property (readwrite, nonatomic) BOOL useKerberos;
+@property (readwrite, nonatomic) BOOL fallbackAfterKerberos;
+@property (readwrite, nonatomic) BOOL noAutoAnonymousLogin;
+@property (readwrite, nonatomic) BOOL useCCache;
+@property (readwrite, nonatomic) BOOL useNTHash;
+@property (readwrite, nonatomic, strong) NSString *netbiosName;
+@property (readwrite, nonatomic, strong) NSString *workgroup;
+@property (readwrite, nonatomic, strong) NSString *username;
+@end
+
 @interface KxSMBProvider : NSObject
 
 @property (readwrite, nonatomic, weak) id<KxSMBProviderDelegate> delegate;
+@property (readwrite, nonatomic, strong) KxSMBConfig *config;
 
 + (instancetype) sharedSmbProvider;
 
@@ -178,9 +217,6 @@ typedef void (^KxSMBBlockProgress)(KxSMBItem *item, long transferred, BOOL *stop
 - (void) renameAtPath:(NSString *)oldPath
               newPath:(NSString *)newPath
                 block:(KxSMBBlock)block;
-
-// sets smb timeout if value > 0 and returns the current timeout
-+ (NSUInteger) smbTimeout:(NSUInteger)value;
 
 @end
 

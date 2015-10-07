@@ -57,6 +57,8 @@
     _cachedAuths = [NSMutableDictionary dictionary];
     KxSMBProvider *provider = [KxSMBProvider sharedSmbProvider];
     provider.delegate = self;
+    provider.config.browseMaxLmbCount = 0;
+    provider.config.debugLevel = 1;
     
     return YES;
 }
@@ -135,8 +137,10 @@
                            workgroup:(NSString *)workgroup
                             username:(NSString *)username
 {
-    if ([share isEqualToString:@"IPC$"]) {
-        return nil;
+    if ([share isEqualToString:@"IPC$"] ||
+        [share hasSuffix:@"$"])
+    {
+        // return nil;
     }
     
     KxSMBAuth *auth = _cachedAuths[server.uppercaseString];

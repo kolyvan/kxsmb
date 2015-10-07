@@ -173,27 +173,30 @@
 
 - (void) requestNewPath
 {
-    UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Connect to Host"
-                                                    message:@"\n\n"
-                                                   delegate:self
-                                          cancelButtonTitle:@"Cancel"
-                                          otherButtonTitles:@"Go", nil];
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Connect to Host"
+                                                                   message:nil
+                                                            preferredStyle:UIAlertControllerStyleAlert];
     
-    if(_newPathField == nil) {
-        _newPathField = [[UITextField alloc] initWithFrame:CGRectMake(12, 45, 260, 30)];
-        _newPathField.borderStyle = UITextBorderStyleRoundedRect;
-        _newPathField.placeholder = @"smb://";
-        _newPathField.keyboardType = UIKeyboardTypeURL;
-        _newPathField.autocorrectionType = UITextAutocorrectionTypeNo;
-        _newPathField.autocapitalizationType = UITextAutocapitalizationTypeNone;
-        _newPathField.text = [[NSUserDefaults standardUserDefaults] objectForKey:@"LastServer"];
-    }
+    [alert addTextFieldWithConfigurationHandler:^(UITextField * textField) {
+        textField.text = [[NSUserDefaults standardUserDefaults] objectForKey:@"LastServer"] ?: @"smb://";
+        textField.placeholder = @"smb://";
+        textField.clearButtonMode = UITextFieldViewModeAlways;
+    }];
     
-    [alert addSubview:_newPathField];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Go"
+                                              style:UIAlertActionStyleDefault
+                                            handler:^(UIAlertAction *action)
+    {
+        self.path = alert.textFields[0].text;
+        [[NSUserDefaults standardUserDefaults] setObject:_newPathField.text forKey:@"LastServer"];
+    }]];
+     
+    [alert addAction:[UIAlertAction actionWithTitle:@"Cancel"
+                                              style:UIAlertActionStyleCancel
+                                            handler:nil]];
     
-    [alert show];
-    
-    [_newPathField becomeFirstResponder];
+
+    [self presentViewController:alert animated:YES completion:nil];
 }
 
 - (void) updateStatus: (id) status

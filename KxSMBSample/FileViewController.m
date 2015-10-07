@@ -44,7 +44,8 @@
     UIView          *_container;
     UILabel         *_nameLabel;
     UILabel         *_sizeLabel;
-    UILabel         *_dateLabel;
+    UILabel         *_modifiedLabel;
+    UILabel         *_createdLabel;
     UIButton        *_downloadButton;
     UIProgressView  *_downloadProgress;
     UILabel         *_downloadLabel;
@@ -79,26 +80,33 @@
     _container.backgroundColor = [UIColor whiteColor];
     [self.view addSubview:_container];
     
-    _nameLabel = [[UILabel alloc] initWithFrame:CGRectMake(10, 10, W - 20, 30)];
+    _nameLabel = [[UILabel alloc] initWithFrame:CGRectMake(10, 10, W - 20, 25)];
     _nameLabel.font = [UIFont boldSystemFontOfSize:16];
     _nameLabel.textColor = [UIColor darkTextColor];
     _nameLabel.opaque = NO;
     _nameLabel.backgroundColor = [UIColor clearColor];
     _nameLabel.autoresizingMask = UIViewAutoresizingFlexibleWidth;
     
-    _sizeLabel = [[UILabel alloc] initWithFrame:CGRectMake(10, 40, W - 20, 30)];
+    _sizeLabel = [[UILabel alloc] initWithFrame:CGRectMake(10, 35, W - 20, 25)];
     _sizeLabel.font = [UIFont systemFontOfSize:14];
     _sizeLabel.textColor = [UIColor darkTextColor];
     _sizeLabel.opaque = NO;
     _sizeLabel.backgroundColor = [UIColor clearColor];
     _sizeLabel.autoresizingMask = UIViewAutoresizingFlexibleWidth;
     
-    _dateLabel = [[UILabel alloc] initWithFrame:CGRectMake(10, 70, W - 20, 30)];
-    _dateLabel.font = [UIFont systemFontOfSize:14];;
-    _dateLabel.textColor = [UIColor darkTextColor];
-    _dateLabel.opaque = NO;
-    _dateLabel.backgroundColor = [UIColor clearColor];
-    _dateLabel.autoresizingMask = UIViewAutoresizingFlexibleWidth;
+    _modifiedLabel = [[UILabel alloc] initWithFrame:CGRectMake(10, 60, W - 20, 25)];
+    _modifiedLabel.font = [UIFont systemFontOfSize:14];;
+    _modifiedLabel.textColor = [UIColor darkTextColor];
+    _modifiedLabel.opaque = NO;
+    _modifiedLabel.backgroundColor = [UIColor clearColor];
+    _modifiedLabel.autoresizingMask = UIViewAutoresizingFlexibleWidth;
+    
+    _createdLabel = [[UILabel alloc] initWithFrame:CGRectMake(10, 85, W - 20, 25)];
+    _createdLabel.font = [UIFont systemFontOfSize:14];;
+    _createdLabel.textColor = [UIColor darkTextColor];
+    _createdLabel.opaque = NO;
+    _createdLabel.backgroundColor = [UIColor clearColor];
+    _createdLabel.autoresizingMask = UIViewAutoresizingFlexibleWidth;
     
     _downloadButton = [UIButton buttonWithType:UIButtonTypeRoundedRect];
     _downloadButton.frame = CGRectMake(10, 120, 100, 30);
@@ -121,7 +129,8 @@
     
     [_container addSubview:_nameLabel];
     [_container addSubview:_sizeLabel];
-    [_container addSubview:_dateLabel];
+    [_container addSubview:_modifiedLabel];
+    [_container addSubview:_createdLabel];
     [_container addSubview:_downloadButton];
     [_container addSubview:_downloadLabel];
     [_container addSubview:_downloadProgress];
@@ -142,7 +151,8 @@
     
     _nameLabel.text = _smbFile.path;
     _sizeLabel.text = [NSString stringWithFormat:@"size: %lld", _smbFile.stat.size];
-    _dateLabel.text = [NSString stringWithFormat:@"date: %@", _smbFile.stat.lastModified];
+    _modifiedLabel.text = [NSString stringWithFormat:@"modified: %@", _smbFile.stat.lastModified];
+    _createdLabel.text = [NSString stringWithFormat:@"created: %@", _smbFile.stat.creationTime];
 }
 
 - (void) viewWillDisappear:(BOOL)animated

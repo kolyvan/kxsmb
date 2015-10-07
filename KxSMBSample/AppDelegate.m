@@ -83,7 +83,10 @@
 
 #pragma mark - KxSMBProviderDelegate
 
-- (void) presentSmbAuthViewControllerForServer: (NSString *) server
+- (void) presentSmbAuthViewControllerForServer:(NSString *)server
+                                         share:(NSString *)share
+                                     workgroup:(NSString *)workgroup
+                                      username:(NSString *)username
 {
     if (!_smbAuthViewController) {
         _smbAuthViewController = [[SmbAuthViewController alloc] init];
@@ -97,6 +100,8 @@
         return;
     
     _smbAuthViewController.server = server;
+    _smbAuthViewController.workgroup = workgroup;
+    _smbAuthViewController.username = username;
     
     UIViewController *vc = [[UINavigationController alloc] initWithRootViewController:_smbAuthViewController];
     
@@ -105,8 +110,8 @@
                                       completion:nil];
 }
 
-- (void) couldSmbAuthViewController: (SmbAuthViewController *) controller
-                               done: (BOOL) done
+- (void) couldSmbAuthViewController:(SmbAuthViewController *) controller
+                               done:(BOOL) done
 {
     if (done) {
         
@@ -116,8 +121,7 @@
         
         _cachedAuths[controller.server.uppercaseString] = auth;
         
-        NSLog(@"store auth for %@ -> %@/%@:%@",
-              controller.server, auth.workgroup, auth.username, auth.password);
+        NSLog(@"store auth %@ -> (%@) %@:%@", controller.server, controller.workgroup, controller.username, controller.password);
     }
     
     UINavigationController *nav = (UINavigationController *)self.window.rootViewController;
@@ -126,16 +130,30 @@
     [_headVC reloadPath];
 }
 
-- (KxSMBAuth *) smbAuthForServer: (NSString *) server
-                       withShare: (NSString *) share
-{   
+- (KxSMBAuth *) smbRequestAuthServer:(NSString *)server
+                               share:(NSString *)share
+                           workgroup:(NSString *)workgroup
+                            username:(NSString *)username
+{
+    if ([share isEqualToString:@"IPC$"]) {
+        return nil;
+    }
+    
     KxSMBAuth *auth = _cachedAuths[server.uppercaseString];
-    if (auth)
+    if (auth) {
+        
+        // NSLog(@"cached auth for %@ -> %@ (%@) %@:%@", server, share, auth.workgroup, auth.username, auth.password);
         return auth;
+    }
+    
+    NSLog(@"ask auth for %@/%@ (%@)", server, share, workgroup);
     
     dispatch_async(dispatch_get_main_queue(), ^{
     
-        [self presentSmbAuthViewControllerForServer:server];
+        [self presentSmbAuthViewControllerForServer:server
+                                              share:share
+                                          workgroup:workgroup
+                                           username:username];
     });
     
     return nil;

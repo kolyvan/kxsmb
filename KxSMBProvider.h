@@ -124,11 +124,14 @@ typedef void (^KxSMBBlockProgress)(KxSMBItem *item, long transferred, BOOL *stop
 + (id) smbAuthWorkgroup: (NSString *)workgroup
                username: (NSString *)username
                password: (NSString *)password;
+
 @end
 
 @protocol KxSMBProviderDelegate <NSObject>
-- (KxSMBAuth *) smbAuthForServer: (NSString *) server
-                       withShare: (NSString *) share;
+- (KxSMBAuth *) smbRequestAuthServer:(NSString *)server
+                               share:(NSString *)share
+                           workgroup:(NSString *)workgroup
+                           username:(NSString *)username;
 @end
 
 // smbc_share_mode

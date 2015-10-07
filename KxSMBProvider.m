@@ -1565,6 +1565,31 @@ static KxSMBProvider *gSmbProvider;
     });
 }
 
+#if 0
++ (void) dumpSmbcOptions
+{
+    NSLog(@"Debug: %d", smbc_getDebug(smbContext));
+    NSLog(@"NetbiosName: %s", smbc_getNetbiosName(smbContext));
+    NSLog(@"Workgroup: %s", smbc_getWorkgroup(smbContext));
+    NSLog(@"User: %s", smbc_getUser(smbContext));
+    NSLog(@"Timeout: %d", smbc_getTimeout(smbContext));
+    NSLog(@"DebugToStderr: %d", smbc_getOptionDebugToStderr(smbContext));
+    NSLog(@"FullTimeNames: %d", smbc_getOptionFullTimeNames(smbContext));
+    NSLog(@"OpenShareMode: %d", smbc_getOptionOpenShareMode(smbContext));
+    NSLog(@"EncryptionLevel: %d", smbc_getOptionSmbEncryptionLevel(smbContext));
+    NSLog(@"CaseSensitive: %d", smbc_getOptionCaseSensitive(smbContext));
+    NSLog(@"BrowseMaxLmbCount: %d", smbc_getOptionBrowseMaxLmbCount(smbContext));
+    NSLog(@"UrlEncodeReaddirEntries: %d", smbc_getOptionUrlEncodeReaddirEntries(smbContext));
+    NSLog(@"OneSharePerServer: %d", smbc_getOptionOneSharePerServer(smbContext));
+    NSLog(@"UseKerberos: %d", smbc_getOptionUseKerberos(smbContext));
+    NSLog(@"FallbackAfterKerberos: %d", smbc_getOptionFallbackAfterKerberos(smbContext));
+    NSLog(@"NoAutoAnonymousLogin: %d", smbc_getOptionNoAutoAnonymousLogin(smbContext));
+    NSLog(@"UseCCache: %d", smbc_getOptionUseCCache(smbContext));
+    NSLog(@"UseNTHash: %d", smbc_getOptionUseNTHash(smbContext));
+}
+#endif
+
+
 @end
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -2033,30 +2058,6 @@ static KxSMBProvider *gSmbProvider;
     return [_impl createFile:overwrite];
 }
 
-#if 0
-+ (void) dumpSmbcOptions
-{
-    NSLog(@"Debug: %d", smbc_getDebug(smbContext));
-    NSLog(@"NetbiosName: %s", smbc_getNetbiosName(smbContext));
-    NSLog(@"Workgroup: %s", smbc_getWorkgroup(smbContext));
-    NSLog(@"User: %s", smbc_getUser(smbContext));
-    NSLog(@"Timeout: %d", smbc_getTimeout(smbContext));
-    NSLog(@"DebugToStderr: %d", smbc_getOptionDebugToStderr(smbContext));
-    NSLog(@"FullTimeNames: %d", smbc_getOptionFullTimeNames(smbContext));
-    NSLog(@"OpenShareMode: %d", smbc_getOptionOpenShareMode(smbContext));
-    NSLog(@"EncryptionLevel: %d", smbc_getOptionSmbEncryptionLevel(smbContext));
-    NSLog(@"CaseSensitive: %d", smbc_getOptionCaseSensitive(smbContext));
-    NSLog(@"BrowseMaxLmbCount: %d", smbc_getOptionBrowseMaxLmbCount(smbContext));
-    NSLog(@"UrlEncodeReaddirEntries: %d", smbc_getOptionUrlEncodeReaddirEntries(smbContext));
-    NSLog(@"OneSharePerServer: %d", smbc_getOptionOneSharePerServer(smbContext));
-    NSLog(@"UseKerberos: %d", smbc_getOptionUseKerberos(smbContext));
-    NSLog(@"FallbackAfterKerberos: %d", smbc_getOptionFallbackAfterKerberos(smbContext));
-    NSLog(@"NoAutoAnonymousLogin: %d", smbc_getOptionNoAutoAnonymousLogin(smbContext));
-    NSLog(@"UseCCache: %d", smbc_getOptionUseCCache(smbContext));
-    NSLog(@"UseNTHash: %d", smbc_getOptionUseNTHash(smbContext));
-}
-#endif
-
 @end
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -2073,10 +2074,13 @@ static void my_smbc_get_auth_data_fn(const char *srv,
     KxSMBAuth *auth = nil;
     __strong id<KxSMBProviderDelegate> delegate = provider.delegate;
     if (delegate) {
-        auth = [delegate smbAuthForServer:[NSString stringWithUTF8String:srv]
-                                withShare:[NSString stringWithUTF8String:shr]];
-    }
         
+        auth = [delegate smbRequestAuthServer:[NSString stringWithUTF8String:srv]
+                                        share:[NSString stringWithUTF8String:shr]
+                                    workgroup:[NSString stringWithUTF8String:workgroup]
+                                     username:[NSString stringWithUTF8String:username]];
+    }
+            
     if (auth.username.length)
         strncpy(username, auth.username.UTF8String, unlen - 1);
     else

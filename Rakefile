@@ -265,6 +265,18 @@ task :build_smb_x86_64 do
 	buildArch('x86_64')	
 end
 
+desc "Build smb universal libs (full)"
+task :build_smb_universal_full do	
+	
+	dest = Pathname.new("#{SAMBA_SOURCE_PATH}/bin/universal")
+	dest.mkdir unless dest.exist?
+
+	SMB_LIBS.each do |x|
+		args = "-create -arch armv7 #{SAMBA_SOURCE_PATH}/bin/armv7/#{x}.a -arch armv7s #{SAMBA_SOURCE_PATH}/bin/armv7s/#{x}.a -arch arm64 #{SAMBA_SOURCE_PATH}/bin/arm64/#{x}.a -arch i386 #{SAMBA_SOURCE_PATH}/bin/i386/#{x}.a -arch x86_64 #{SAMBA_SOURCE_PATH}/bin/x86_64/#{x}.a -output #{dest}/#{x}.a"
+		system_or_exit "xcrun lipo #{args}"
+	end	
+end
+
 desc "Build smb universal libs"
 task :build_smb_universal do	
 	
@@ -272,7 +284,7 @@ task :build_smb_universal do
 	dest.mkdir unless dest.exist?
 
 	SMB_LIBS.each do |x|
-		args = "-create -arch armv7 #{SAMBA_SOURCE_PATH}/bin/armv7/#{x}.a -arch armv7s #{SAMBA_SOURCE_PATH}/bin/armv7s/#{x}.a -arch arm64 #{SAMBA_SOURCE_PATH}/bin/arm64/#{x}.a -arch i386 #{SAMBA_SOURCE_PATH}/bin/i386/#{x}.a -arch x86_64 #{SAMBA_SOURCE_PATH}/bin/x86_64/#{x}.a -output #{dest}/#{x}.a"
+		args = "-create -arch armv7 #{SAMBA_SOURCE_PATH}/bin/armv7/#{x}.a -arch arm64 #{SAMBA_SOURCE_PATH}/bin/arm64/#{x}.a -arch i386 #{SAMBA_SOURCE_PATH}/bin/i386/#{x}.a -arch x86_64 #{SAMBA_SOURCE_PATH}/bin/x86_64/#{x}.a -output #{dest}/#{x}.a"
 		system_or_exit "xcrun lipo #{args}"
 	end	
 end
@@ -333,5 +345,6 @@ task :retrieve_samba do
 
 end
 
-task :build_all => [:retrieve_samba, :build_smb_armv7, :build_smb_armv7s, :build_smb_arm64, :build_smb_i386, :build_smb_x86_64, :build_smb_universal, :copy_libs, :copy_headers] 
+task :build_full => [:retrieve_samba, :build_smb_armv7, :build_smb_armv7s, :build_smb_arm64, :build_smb_i386, :build_smb_x86_64, :build_smb_universal_full, :copy_libs, :copy_headers] 
+task :build_all => [:retrieve_samba, :build_smb_armv7, :build_smb_arm64, :build_smb_i386, :build_smb_x86_64, :build_smb_universal, :copy_libs, :copy_headers] 
 task :default => [:build_all]

@@ -271,6 +271,13 @@ typedef NS_ENUM(NSUInteger, KxSMBConfigEncryptLevel) {
               progress:(KxSMBBlockProgress)progress
                  block:(KxSMBBlock)block;
 
+- (void) copyFromPath:(NSString *)oldPath
+               toPath:(NSString *)newPath
+            overwrite:(BOOL)overwrite
+                 auth:(KxSMBAuth *)auth
+             progress:(KxSMBBlockProgress)progress
+                block:(KxSMBBlock)block;
+
 - (void) removeFolderAtPath:(NSString *)path
                        auth:(KxSMBAuth *)auth
                       block:(KxSMBBlock)block;

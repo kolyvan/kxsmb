@@ -1165,6 +1165,113 @@ static KxSMBProvider *gSmbProvider;
     }
 }
 
++ (void) copyFileFromPath:(NSString *)oldPath
+                   toPath:(NSString *)newPath
+                overwrite:(BOOL)overwrite
+                     auth:(KxSMBAuth *)auth
+                 progress:(KxSMBBlockProgress)progress
+                    block:(KxSMBBlock)block
+{
+    KxSMBProvider *provider = [KxSMBProvider sharedSmbProvider];
+    
+    [provider fetchAtPath:oldPath
+                expandDir:NO
+                     auth:auth
+                    block:^(id result)
+    {
+        if ([result isKindOfClass:[KxSMBItemFile class]]) {
+            
+            KxSMBItemFile *fromFile = result;
+            
+            [provider createFileAtPath:newPath
+                             overwrite:overwrite
+                                  auth:auth
+                                 block:^(id result)
+             {
+                 if ([result isKindOfClass:[KxSMBItemFile class]]) {
+                     
+                     KxSMBItemFile *toFile = result;
+                     
+                     [self copyFromSMBFile:fromFile
+                                 toSMBFile:toFile
+                                  progress:progress
+                                     block:block];
+                 } else {
+                     
+                     block([result isKindOfClass:[NSError class]] ? result : nil);
+                 }
+             }];
+            
+        } else if ([result isKindOfClass:[KxSMBItemTree class]]) {
+        
+            block(mkKxSMBError(KxSMBErrorPathIsDir, newPath, 0));
+            
+        } else {
+            
+            block([result isKindOfClass:[NSError class]] ? result : nil);
+        }
+    }];
+}
+
++ (void) copyFromSMBFile:(KxSMBItemFile *)fromFile
+               toSMBFile:(KxSMBItemFile *)toFile
+                progress:(KxSMBBlockProgress)progress
+                   block:(KxSMBBlock)block
+{
+    [fromFile readDataOfLength:1024*1024
+                         block:^(id result)
+     {
+         if ([result isKindOfClass:[NSData class]]) {
+             
+             NSData *data = result;
+             if (data.length) {
+                 
+                 [toFile writeData:data block:^(id result) {
+                     
+                     if ([result isKindOfClass:[NSNumber class]]) {
+                         
+                         if (progress) {
+                             
+                             BOOL stop = NO;
+                             progress(fromFile, 0, &stop);
+                             if (stop) {
+                                 
+                                 // remove the dest smbfile from a share
+                                 NSString *smbPath = toFile.path;
+                                 [toFile close];
+                                 KxSMBProvider *provider = [KxSMBProvider sharedSmbProvider];
+                                 [provider dispatchAsync:^{
+                                     [KxSMBProvider removeAtPath:smbPath auth:toFile.auth];
+                                 }];
+                                 
+                                 block(nil);
+                                 return;
+                             }
+                         }
+                         
+                         [self copyFromSMBFile:fromFile
+                                     toSMBFile:toFile
+                                      progress:progress
+                                         block:block];
+                         
+                         return;
+                     }
+                     
+                     block([result isKindOfClass:[NSError class]] ? result : nil);
+                 }];
+                 
+             } else {
+                 
+                 block(toFile); // complete
+             }
+             
+             return;
+         }
+         
+         block([result isKindOfClass:[NSError class]] ? result : nil);
+     }];
+}
+
 ///
 
 + (void) removeSMBItems:(NSArray *)smbItems
@@ -1576,6 +1683,21 @@ static KxSMBProvider *gSmbProvider;
                             progress:progress
                                block:block];
     }
+}
+
+- (void) copyFromPath:(NSString *)oldPath
+               toPath:(NSString *)newPath
+            overwrite:(BOOL)overwrite
+                 auth:(KxSMBAuth *)auth
+             progress:(KxSMBBlockProgress)progress
+                block:(KxSMBBlock)block
+{
+    [KxSMBProvider copyFileFromPath:oldPath
+                             toPath:newPath
+                          overwrite:overwrite
+                               auth:auth
+                           progress:progress
+                              block:block];
 }
 
 - (void) removeFolderAtPath:(NSString *)path

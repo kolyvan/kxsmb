@@ -147,6 +147,7 @@
     
     KxSMBProvider *provider = [KxSMBProvider sharedSmbProvider];
     [provider fetchAtPath:path
+                     auth:_defaultAuth
                     block:^(id result)
     {
         if ([result isKindOfClass:[NSError class]]) {
@@ -260,7 +261,7 @@
     NSString *path = [_path stringByAppendingSMBPathComponent:name];
     
     KxSMBProvider *provider = [KxSMBProvider sharedSmbProvider];
-    [provider createFileAtPath:path overwrite:YES block:^(id result) {
+    [provider createFileAtPath:path overwrite:YES auth:_defaultAuth block:^(id result) {
         
         if ([result isKindOfClass:[KxSMBItemFile class]]) {
             
@@ -286,7 +287,7 @@
 {
     NSString *path = [_path stringByAppendingSMBPathComponent:@"NewFolder"];
     KxSMBProvider *provider = [KxSMBProvider sharedSmbProvider];
-    id result = [provider createFolderAtPath:path];
+    id result = [provider createFolderAtPath:path auth:_defaultAuth];
     if ([result isKindOfClass:[KxSMBItemTree class]]) {
         
         NSMutableArray *ma = [_items mutableCopy];
@@ -350,6 +351,7 @@
     if ([item isKindOfClass:[KxSMBItemTree class]]) {
         
         TreeViewController *vc = [[TreeViewController alloc] init];
+        vc.defaultAuth = _defaultAuth;
         vc.path = item.path;
         [self.navigationController pushViewController:vc animated:YES];
         
@@ -371,7 +373,7 @@
     if (editingStyle == UITableViewCellEditingStyleDelete) {
         
         KxSMBItem *item = _items[indexPath.row];
-        [[KxSMBProvider sharedSmbProvider] removeAtPath:item.path block:^(id result) {
+        [[KxSMBProvider sharedSmbProvider] removeAtPath:item.path auth:_defaultAuth block:^(id result) {
             
             NSLog(@"completed:%@", result);
             if (![result isKindOfClass:[NSError class]]) {

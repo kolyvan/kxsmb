@@ -37,7 +37,6 @@
 #import "talloc_stack.h"
 
 ///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
 
 NSString * const KxSMBErrorDomain = @"ru.kolyvan.KxSMB";
 
@@ -111,13 +110,12 @@ static KxSMBError errnoToSMBErr(int err)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
 
 @implementation KxSMBAuth
 
-+ (id) smbAuthWorkgroup: (NSString *)workgroup
-               username: (NSString *)username
-               password: (NSString *)password
++ (instancetype) smbAuthWorkgroup:(NSString *)workgroup
+                         username:(NSString *)username
+                         password:(NSString *)password
 {
     KxSMBAuth *auth = [[KxSMBAuth alloc] init];
     auth.workgroup = workgroup;
@@ -128,7 +126,6 @@ static KxSMBError errnoToSMBErr(int err)
 
 @end
 
-///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 @interface KxSMBItemStat ()
@@ -144,15 +141,17 @@ static KxSMBError errnoToSMBErr(int err)
 
 @implementation KxSMBItem
 
-- (id) initWithType: (KxSMBItemType) type
-               path: (NSString *) path
-               stat: (KxSMBItemStat *)stat
+- (id) initWithType:(KxSMBItemType) type
+               path:(NSString *) path
+               stat:(KxSMBItemStat *)stat
+               auth:(KxSMBAuth *)auth
 {
     self = [super init];
     if (self) {
         _type = type;
         _path = path;
-        _stat = stat;        
+        _stat = stat;
+        _auth = auth;
     }
     return self;
 }
@@ -182,7 +181,6 @@ static KxSMBError errnoToSMBErr(int err)
 @end
 
 ///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
 
 static void my_smbc_get_auth_data_fn(const char *srv,
                                      const char *shr,
@@ -190,7 +188,13 @@ static void my_smbc_get_auth_data_fn(const char *srv,
                                      char *username, int unlen,
                                      char *password, int pwlen);
 
-///////////////////////////////////////////////////////////////////////////////
+static void my_smbc_get_auth_data_with_context_fn(SMBCCTX *c,
+                                                  const char *srv,
+                                                  const char *shr,
+                                                  char *wg, int wglen,
+                                                  char *un, int unlen,
+                                                  char *pw, int pwlen);
+
 ///////////////////////////////////////////////////////////////////////////////
 
 
@@ -202,6 +206,7 @@ static void my_smbc_get_auth_data_fn(const char *srv,
 
 
 @implementation KxSMBConfig
+
 - (id) init
 {
     if ((self = [super init])) {
@@ -228,6 +233,37 @@ static void my_smbc_get_auth_data_fn(const char *srv,
     }
     return self;
 }
+
+- (void) configureSmbContext:(SMBCCTX *)smbContext
+{
+    smbc_setTimeout(smbContext,  (int)_timeout);
+    smbc_setDebug(smbContext, (int)_debugLevel);
+    
+    smbc_setOptionDebugToStderr(smbContext, (smbc_bool)_debugToStderr);
+    smbc_setOptionFullTimeNames(smbContext, (smbc_bool)_fullTimeNames);
+    smbc_setOptionOpenShareMode(smbContext, (smbc_share_mode)_shareMode);
+    smbc_setOptionSmbEncryptionLevel(smbContext, (smbc_smb_encrypt_level)_encryptionLevel);
+    smbc_setOptionCaseSensitive(smbContext, (smbc_bool)_caseSensitive);
+    smbc_setOptionBrowseMaxLmbCount(smbContext, (int)_browseMaxLmbCount);
+    smbc_setOptionUrlEncodeReaddirEntries(smbContext, (smbc_bool)_urlEncodeReaddirEntries);
+    smbc_setOptionOneSharePerServer(smbContext, (smbc_bool)_oneSharePerServer);
+    smbc_setOptionUseKerberos(smbContext, (smbc_bool)_useKerberos);
+    smbc_setOptionFallbackAfterKerberos(smbContext, (smbc_bool)_fallbackAfterKerberos);
+    smbc_setOptionNoAutoAnonymousLogin(smbContext, (smbc_bool)_noAutoAnonymousLogin);
+    smbc_setOptionUseCCache(smbContext, (smbc_bool)_useCCache);
+    smbc_setOptionUseNTHash(smbContext, (smbc_bool)_useNTHash);
+    
+    if (_netbiosName.length) {
+        smbc_setNetbiosName(smbContext, (char *)_netbiosName.UTF8String);
+    }
+    if (_workgroup.length) {
+        smbc_setWorkgroup(smbContext, (char *)_workgroup.UTF8String);
+    }
+    if (_username.length) {
+        smbc_setUser(smbContext, (char *)_username.UTF8String);
+    }
+}
+
 @end
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -239,7 +275,7 @@ static KxSMBProvider *gSmbProvider;
 
 @implementation KxSMBProvider {
     
-    dispatch_queue_t    _dispatchQueue;
+    dispatch_queue_t _dispatchQueue;
 }
 
 + (instancetype) sharedSmbProvider
@@ -276,28 +312,51 @@ static KxSMBProvider *gSmbProvider;
 
 #pragma mark - class methods
 
-+ (SMBCCTX *) openSmbContext
-{    
++ (SMBCCTX *) openSmbContext:(KxSMBAuth *)auth
+{
+    //NSParameterAssert(auth);
+    
     SMBCCTX *smbContext = smbc_new_context();
     if (!smbContext) {
 		return NULL;
     }
     
+    if (auth) {
+        
+        smbc_setFunctionAuthDataWithContext(smbContext, my_smbc_get_auth_data_with_context_fn);
+        smbc_setOptionUserData(smbContext, (void *)CFBridgingRetain(auth));
+        
+    } else {
+        
+        smbc_setFunctionAuthData(smbContext, my_smbc_get_auth_data_fn);
+    }
+    
+    KxSMBConfig *cfg = [KxSMBProvider sharedSmbProvider].config;
+    [cfg configureSmbContext:smbContext];
+    
 	if (!smbc_init_context(smbContext)) {
+        
+        void *userdata = smbc_getOptionUserData(smbContext);
+        if (userdata) {
+            CFBridgingRelease(userdata);
+        }
+        
 		smbc_free_context(smbContext, NO);
 		return NULL;
 	}
-    
-    smbc_setFunctionAuthData(smbContext, my_smbc_get_auth_data_fn);
-    [self configureSmbContext:smbContext];
     
     smbc_set_context(smbContext);
     return smbContext;
 }
 
-+ (void) closeSmbContext: (SMBCCTX *) smbContext
++ (void) closeSmbContext:(SMBCCTX *)smbContext
 {
     if (smbContext) {
+        
+        void *userdata = smbc_getOptionUserData(smbContext);
+        if (userdata) {
+            CFBridgingRelease(userdata);
+        }
         
         // fixes warning: no talloc stackframe at libsmb/cliconnect.c:2637, leaking memory
         TALLOC_CTX *frame = talloc_stackframe();
@@ -308,45 +367,12 @@ static KxSMBProvider *gSmbProvider;
     }
 }
 
-+ (void) configureSmbContext: (SMBCCTX *) smbContext
-{
-    KxSMBConfig *cfg = [KxSMBProvider sharedSmbProvider].config;
-    if (cfg) {
-        
-        smbc_setTimeout(smbContext,  (int)cfg.timeout);
-        smbc_setDebug(smbContext, (int)cfg.debugLevel);
-        
-        smbc_setOptionDebugToStderr(smbContext, (smbc_bool)cfg.debugToStderr);
-        smbc_setOptionFullTimeNames(smbContext, (smbc_bool)cfg.fullTimeNames);
-        smbc_setOptionOpenShareMode(smbContext, (smbc_share_mode)cfg.shareMode);
-        smbc_setOptionSmbEncryptionLevel(smbContext, (smbc_smb_encrypt_level)cfg.encryptionLevel);
-        smbc_setOptionCaseSensitive(smbContext, (smbc_bool)cfg.caseSensitive);
-        smbc_setOptionBrowseMaxLmbCount(smbContext, (int)cfg.browseMaxLmbCount);
-        smbc_setOptionUrlEncodeReaddirEntries(smbContext, (smbc_bool)cfg.urlEncodeReaddirEntries);
-        smbc_setOptionOneSharePerServer(smbContext, (smbc_bool)cfg.oneSharePerServer);
-        smbc_setOptionUseKerberos(smbContext, (smbc_bool)cfg.useKerberos);
-        smbc_setOptionFallbackAfterKerberos(smbContext, (smbc_bool)cfg.fallbackAfterKerberos);
-        smbc_setOptionNoAutoAnonymousLogin(smbContext, (smbc_bool)cfg.noAutoAnonymousLogin);
-        smbc_setOptionUseCCache(smbContext, (smbc_bool)cfg.useCCache);
-        smbc_setOptionUseNTHash(smbContext, (smbc_bool)cfg.useNTHash);
-        
-        if (cfg.netbiosName.length) {
-            smbc_setNetbiosName(smbContext, (char *)cfg.netbiosName.UTF8String);
-        }
-        if (cfg.workgroup.length) {
-            smbc_setWorkgroup(smbContext, (char *)cfg.workgroup.UTF8String);
-        }
-        if (cfg.username.length) {
-            smbc_setUser(smbContext, (char *)cfg.username.UTF8String);
-        }        
-    }
-}
-
-+ (id) fetchTreeAtPath: (NSString *) path
++ (id) fetchTreeAtPath:(NSString *)path
+                  auth:(KxSMBAuth *)auth
 {
     NSParameterAssert(path);    
     
-    SMBCCTX *smbContext = [self openSmbContext];
+    SMBCCTX *smbContext = [self openSmbContext:auth];
     if (!smbContext) {
         const int err = errno;
         return mkKxSMBError(errnoToSMBErr(err),
@@ -359,7 +385,6 @@ static KxSMBProvider *gSmbProvider;
     if (smbFile) {
         
         NSMutableArray *ma = [NSMutableArray array];
-        KxSMBItem *item;
         
         struct smbc_dirent *dirent;
         
@@ -393,38 +418,45 @@ static KxSMBProvider *gSmbProvider;
             switch(dirent->smbc_type)
             {
                 case SMBC_WORKGROUP:
-                case SMBC_SERVER:
-                    item = [[KxSMBItemTree alloc] initWithType:dirent->smbc_type
-                                                          path:[NSString stringWithFormat:@"smb://%@", name]
-                                                          stat:nil];
+                case SMBC_SERVER: {
+                    KxSMBItem *item = [[KxSMBItemTree alloc] initWithType:dirent->smbc_type
+                                                                     path:[NSString stringWithFormat:@"smb://%@", name]
+                                                                     stat:nil
+                                                                     auth:auth];
                     [ma addObject:item];
                     break;
+                }
                     
                 case SMBC_FILE_SHARE:
-                case SMBC_IPC_SHARE:                    
-                case SMBC_DIR:                    
-                    item = [[KxSMBItemTree alloc] initWithType:dirent->smbc_type
-                                                          path:itemPath
-                                                          stat:stat];
+                case SMBC_IPC_SHARE:
+                case SMBC_DIR: {
+                    KxSMBItem *item = [[KxSMBItemTree alloc] initWithType:dirent->smbc_type
+                                                                     path:itemPath
+                                                                     stat:stat
+                                                                     auth:auth];
                     [ma addObject:item];
                     break;
+                }
                     
-                case SMBC_FILE:
-                    item = [[KxSMBItemFile alloc] initWithType:KxSMBItemTypeFile
-                                                          path:itemPath
-                                                          stat:stat];
+                case SMBC_FILE: {
+                    KxSMBItem *item = [[KxSMBItemFile alloc] initWithType:KxSMBItemTypeFile
+                                                                     path:itemPath
+                                                                     stat:stat
+                                                                     auth:auth];
                     [ma addObject:item];
                     break;
-                
+                }
                     
                 case SMBC_PRINTER_SHARE:
                 case SMBC_COMMS_SHARE:
-                case SMBC_LINK:                                       
-                    item = [[KxSMBItem alloc] initWithType:dirent->smbc_type
-                                                      path:itemPath
-                                                      stat:stat];
+                case SMBC_LINK: {
+                    KxSMBItem *item = [[KxSMBItem alloc] initWithType:dirent->smbc_type
+                                                                 path:itemPath
+                                                                 stat:stat
+                                                                 auth:auth];
                     [ma addObject:item];
                     break;
+                }
             }
         }
         
@@ -442,8 +474,8 @@ static KxSMBProvider *gSmbProvider;
     return result;
 }
 
-+ (id) fetchStat: (SMBCCTX *) smbContext
-          atPath: (NSString *) path
++ (id) fetchStat:(SMBCCTX *)smbContext
+          atPath:(NSString *)path
 {
     NSParameterAssert(smbContext);
     NSParameterAssert(path);
@@ -467,7 +499,8 @@ static KxSMBProvider *gSmbProvider;
     
 }
 
-+ (id) fetchAtPath: (NSString *) path
++ (id) fetchAtPath:(NSString *)path
+              auth:(KxSMBAuth *)auth
 {
     NSParameterAssert(path);
     
@@ -478,21 +511,23 @@ static KxSMBProvider *gSmbProvider;
 
     NSString *sPath = [path substringFromIndex:@"smb://".length];
     
-    if (!sPath.length)
-        return [self fetchTreeAtPath:path];
+    if (!sPath.length) {
+        return [self fetchTreeAtPath:path auth:auth];
+    }
 
-    if ([sPath hasSuffix:@"/"])
+    if ([sPath hasSuffix:@"/"]) {
         sPath = [sPath substringToIndex:sPath.length - 1];
+    }
     
     if (sPath.pathComponents.count == 1) {
  
         // smb:// or smb://server/ or smb://workgroup/
-        return [self fetchTreeAtPath:path];
+        return [self fetchTreeAtPath:path auth:auth];
     }
     
     id result = nil;
     
-    SMBCCTX *smbContext = [self openSmbContext];
+    SMBCCTX *smbContext = [self openSmbContext:auth];
     if (!smbContext) {
         const int err = errno;
         return mkKxSMBError(errnoToSMBErr(err),
@@ -507,19 +542,21 @@ static KxSMBProvider *gSmbProvider;
         
         if (S_ISDIR(stat.mode)) {
             
-            result =  [self fetchTreeAtPath:path];
+            result =  [self fetchTreeAtPath:path auth:auth];
             
         } else if (S_ISREG(stat.mode)) {
             
             result = [[KxSMBItemFile alloc] initWithType:KxSMBItemTypeFile
                                                     path:path
-                                                    stat:stat];
+                                                    stat:stat
+                                                    auth:auth];
             
         } else {
             
             result = [[KxSMBItem alloc] initWithType:S_ISLNK(stat.mode) ? KxSMBItemTypeLink : KxSMBItemTypeUnknown
                                                 path:path
-                                                stat:stat];
+                                                stat:stat
+                                                auth:auth];
         }
     }
     
@@ -527,7 +564,8 @@ static KxSMBProvider *gSmbProvider;
     return result;
 }
 
-+ (id) removeAtPath: (NSString *) path
++ (id) removeAtPath:(NSString *)path
+               auth:(KxSMBAuth *)auth
 {
     NSParameterAssert(path);
     
@@ -536,7 +574,7 @@ static KxSMBProvider *gSmbProvider;
                             NSLocalizedString(@"Path:%@", nil), path);
     }
     
-    SMBCCTX *smbContext = [self openSmbContext];
+    SMBCCTX *smbContext = [self openSmbContext:auth];
     if (!smbContext) {
         const int err = errno;
         return mkKxSMBError(errnoToSMBErr(err),
@@ -572,7 +610,8 @@ static KxSMBProvider *gSmbProvider;
     return result;
 }
 
-+ (id) createFolderAtPath: (NSString *) path
++ (id) createFolderAtPath:(NSString *)path
+                     auth:(KxSMBAuth *)auth
 {
     NSParameterAssert(path);
     
@@ -581,7 +620,7 @@ static KxSMBProvider *gSmbProvider;
                             NSLocalizedString(@"Path:%@", nil), path);
     }
     
-    SMBCCTX *smbContext = [self openSmbContext];
+    SMBCCTX *smbContext = [self openSmbContext:auth];
     if (!smbContext) {
         const int err = errno;
         return mkKxSMBError(errnoToSMBErr(err),
@@ -604,7 +643,8 @@ static KxSMBProvider *gSmbProvider;
             
             result = [[KxSMBItemTree alloc] initWithType:KxSMBItemTypeDir
                                                     path:path
-                                                    stat:stat];
+                                                    stat:stat
+                                                    auth:auth];
             
         } else {
             
@@ -616,7 +656,9 @@ static KxSMBProvider *gSmbProvider;
     return result;
 }
 
-+ (id) createFileAtPath:(NSString *) path overwrite:(BOOL)overwrite
++ (id) createFileAtPath:(NSString *)path
+              overwrite:(BOOL)overwrite
+                   auth:(KxSMBAuth *)auth
 {
     NSParameterAssert(path);
     
@@ -627,7 +669,8 @@ static KxSMBProvider *gSmbProvider;
     
     KxSMBItemFile *itemFile =  [[KxSMBItemFile alloc] initWithType:KxSMBItemTypeFile
                                                               path:path
-                                                              stat:nil];
+                                                              stat:nil
+                                                              auth:auth];
     id result = [itemFile createFile:overwrite];
     if ([result isKindOfClass:[NSError class]]) {
         return result;
@@ -961,7 +1004,7 @@ static KxSMBProvider *gSmbProvider;
                         [smbFile close];
                         KxSMBProvider *provider = [KxSMBProvider sharedSmbProvider];
                         [provider dispatchAsync:^{
-                            [KxSMBProvider removeAtPath:smbPath];
+                            [KxSMBProvider removeAtPath:smbPath auth:smbFile.auth];
                         }];
                         
                         block(nil);
@@ -990,6 +1033,7 @@ static KxSMBProvider *gSmbProvider;
 + (void) copyLocalFile:(NSString *)localPath
                smbPath:(NSString *)smbPath
              overwrite:(BOOL)overwrite
+                  auth:(KxSMBAuth *)auth
               progress:(KxSMBBlockProgress)progress
                  block:(KxSMBBlock)block
 {
@@ -997,6 +1041,7 @@ static KxSMBProvider *gSmbProvider;
     
     [provider createFileAtPath:smbPath
                      overwrite:overwrite
+                          auth:auth
                          block:^(id result)
      {
          if ([result isKindOfClass:[KxSMBItemFile class]]) {
@@ -1042,6 +1087,7 @@ static KxSMBProvider *gSmbProvider;
                 
                 KxSMBProvider *provider = [KxSMBProvider sharedSmbProvider];
                 [provider createFolderAtPath:[smbFolder.path stringByAppendingSMBPathComponent:path]
+                                        auth:smbFolder.auth
                                        block:^(id result)
                  {
                      if ([result isKindOfClass:[NSError class]]) {
@@ -1065,12 +1111,14 @@ static KxSMBProvider *gSmbProvider;
                 
                 NSString *destFolder = smbFolder.path;
                 NSString *fileFolder = path.stringByDeletingLastPathComponent;
-                if (fileFolder.length)
+                if (fileFolder.length) {
                     destFolder = [destFolder stringByAppendingSMBPathComponent:fileFolder];
+                }
                 
                 [self copyLocalFile:[localFolder stringByAppendingPathComponent:path]
                             smbPath:[destFolder stringByAppendingSMBPathComponent:path.lastPathComponent]
                           overwrite:overwrite
+                               auth:smbFolder.auth
                            progress:progress
                               block:^(id result)
                  {
@@ -1119,7 +1167,9 @@ static KxSMBProvider *gSmbProvider;
     }
     
     KxSMBProvider *provider = [KxSMBProvider sharedSmbProvider];
-    [provider removeAtPath:item.path block:^(id result) {
+    [provider removeAtPath:item.path
+                      auth:item.auth
+                     block:^(id result) {
       
         if ([result isKindOfClass:[NSError class]]) {
             
@@ -1138,6 +1188,7 @@ static KxSMBProvider *gSmbProvider;
 
 + (id) renameAtPath:(NSString *)oldPath
             newPath:(NSString *)newPath
+               auth:(KxSMBAuth *)auth
 {
     NSParameterAssert(oldPath);
     NSParameterAssert(newPath);    
@@ -1152,7 +1203,7 @@ static KxSMBProvider *gSmbProvider;
                             NSLocalizedString(@"Path:%@", nil), newPath);
     }
     
-    SMBCCTX *smbContext = [self openSmbContext];
+    SMBCCTX *smbContext = [self openSmbContext:auth];
     if (!smbContext) {
         const int err = errno;
         return mkKxSMBError(errnoToSMBErr(err),
@@ -1177,11 +1228,17 @@ static KxSMBProvider *gSmbProvider;
             
             if (S_ISDIR(stat.mode)) {
                 
-                result = [[KxSMBItemTree alloc] initWithType:KxSMBItemTypeDir path:newPath stat:stat];
+                result = [[KxSMBItemTree alloc] initWithType:KxSMBItemTypeDir
+                                                        path:newPath
+                                                        stat:stat
+                                                        auth:auth];
                 
             } else if (S_ISREG(stat.mode)) {
                 
-                result = [[KxSMBItemFile alloc] initWithType:KxSMBItemTypeFile path:newPath stat:stat];
+                result = [[KxSMBItemFile alloc] initWithType:KxSMBItemTypeFile
+                                                        path:newPath
+                                                        stat:stat
+                                                        auth:auth];
                 
             } else {
                 
@@ -1208,107 +1265,120 @@ static KxSMBProvider *gSmbProvider;
 
 #pragma mark - public methods
 
-- (void) fetchAtPath: (NSString *) path
-               block: (KxSMBBlock) block
+- (void) fetchAtPath:(NSString *)path
+                auth:(KxSMBAuth *)auth
+               block:(KxSMBBlock)block
 {
     NSParameterAssert(path);
     NSParameterAssert(block);
     
     dispatch_async(_dispatchQueue, ^{
                 
-        id result = [KxSMBProvider fetchAtPath: path.length ? path : @"smb://"];
+        id result = [KxSMBProvider fetchAtPath:(path.length ? path : @"smb://")
+                                          auth:auth];
+        
         dispatch_async(dispatch_get_main_queue(), ^{
             block(result);
         });
     });
 }
 
-- (id) fetchAtPath: (NSString *) path
+- (id) fetchAtPath:(NSString *)path
+              auth:(KxSMBAuth *)auth
 {
     NSParameterAssert(path);
     
     __block id result = nil;
     dispatch_sync(_dispatchQueue, ^{
         
-        result = [KxSMBProvider fetchAtPath: path.length ? path : @"smb://"];
+        result = [KxSMBProvider fetchAtPath:(path.length ? path : @"smb://")
+                                       auth:auth];
     });
     return result;
 }
 
-- (void) createFileAtPath:(NSString *) path overwrite:(BOOL)overwrite block:(KxSMBBlock) block
+- (void) createFileAtPath:(NSString *)path
+                overwrite:(BOOL)overwrite
+                     auth:(KxSMBAuth *)auth
+                    block:(KxSMBBlock) block
 {
     NSParameterAssert(path);
     NSParameterAssert(block);
     
     dispatch_async(_dispatchQueue, ^{
         
-        id result = [KxSMBProvider createFileAtPath:path overwrite:overwrite];
+        id result = [KxSMBProvider createFileAtPath:path overwrite:overwrite auth:auth];
         dispatch_async(dispatch_get_main_queue(), ^{
             block(result);
         });
     });
 }
 
-- (id) createFileAtPath:(NSString *) path overwrite:(BOOL)overwrite
+- (id) createFileAtPath:(NSString *)path
+              overwrite:(BOOL)overwrite
+                   auth:(KxSMBAuth *)auth
 {
     NSParameterAssert(path);
     
     __block id result = nil;
     dispatch_sync(_dispatchQueue, ^{
-        
-        result = [KxSMBProvider createFileAtPath:path overwrite:overwrite];
+        result = [KxSMBProvider createFileAtPath:path overwrite:overwrite auth:auth];
     });
     return result;
 }
 
-- (void) removeAtPath: (NSString *) path block: (KxSMBBlock) block
+- (void) removeAtPath:(NSString *)path
+                 auth:(KxSMBAuth *)auth
+                block:(KxSMBBlock)block
 {
     NSParameterAssert(path);
     NSParameterAssert(block);
     
     dispatch_async(_dispatchQueue, ^{
         
-        id result = [KxSMBProvider removeAtPath:path];
+        id result = [KxSMBProvider removeAtPath:path auth:auth];
         dispatch_async(dispatch_get_main_queue(), ^{
             block(result);
         });
     });
 }
 
-- (id) removeAtPath: (NSString *) path
+- (id) removeAtPath:(NSString *)path
+               auth:(KxSMBAuth *)auth
 {
     NSParameterAssert(path);
     
     __block id result = nil;
     dispatch_sync(_dispatchQueue, ^{
-        
-        result = [KxSMBProvider removeAtPath:path];
+        result = [KxSMBProvider removeAtPath:path auth:auth];
     });
     return result;
 }
 
-- (void) createFolderAtPath:(NSString *) path block: (KxSMBBlock) block
+- (void) createFolderAtPath:(NSString *)path
+                       auth:(KxSMBAuth *)auth
+                      block:(KxSMBBlock)block
 {
     NSParameterAssert(path);
     NSParameterAssert(block);
     
     dispatch_async(_dispatchQueue, ^{
         
-        id result = [KxSMBProvider createFolderAtPath:path];
+        id result = [KxSMBProvider createFolderAtPath:path auth:auth];
         dispatch_async(dispatch_get_main_queue(), ^{
             block(result);
         });
     });
 }
 
-- (id) createFolderAtPath:(NSString *) path
+- (id) createFolderAtPath:(NSString *)path
+                     auth:(KxSMBAuth *)auth
 {
     NSParameterAssert(path);
     
     __block id result = nil;
     dispatch_sync(_dispatchQueue, ^{
-        
-        result = [KxSMBProvider createFolderAtPath:path];
+        result = [KxSMBProvider createFolderAtPath:path auth:auth];
     });
     return result;
 }
@@ -1316,26 +1386,31 @@ static KxSMBProvider *gSmbProvider;
 - (void) copySMBPath:(NSString *)smbPath
            localPath:(NSString *)localPath
            overwrite:(BOOL)overwrite
+                auth:(KxSMBAuth *)auth
                block:(KxSMBBlock)block
 {
-    [self copySMBPath:smbPath localPath:localPath overwrite:overwrite progress:nil block:block];;
+    [self copySMBPath:smbPath localPath:localPath overwrite:overwrite auth:auth progress:nil block:block];;
 }
 
 - (void) copyLocalPath:(NSString *)localPath
                smbPath:(NSString *)smbPath
              overwrite:(BOOL)overwrite
+                  auth:(KxSMBAuth *)auth
                  block:(KxSMBBlock)block
 {
-    [self copyLocalPath:localPath smbPath:smbPath overwrite:overwrite progress:nil block:block];
+    [self copyLocalPath:localPath smbPath:smbPath overwrite:overwrite auth:auth progress:nil block:block];
 }
 
 - (void) copySMBPath:(NSString *)smbPath
            localPath:(NSString *)localPath
            overwrite:(BOOL)overwrite
+                auth:(KxSMBAuth *)auth
             progress:(KxSMBBlockProgress)progress
                block:(KxSMBBlock)block
 {   
-    [self fetchAtPath:smbPath block:^(id result) {
+    [self fetchAtPath:smbPath
+                 auth:auth
+                block:^(id result) {
         
         if ([result isKindOfClass:[KxSMBItemFile class]]) {
             
@@ -1426,6 +1501,7 @@ static KxSMBProvider *gSmbProvider;
 - (void) copyLocalPath:(NSString *)localPath
                smbPath:(NSString *)smbPath
              overwrite:(BOOL)overwrite
+                  auth:(KxSMBAuth *)auth
               progress:(KxSMBBlockProgress)progress
                  block:(KxSMBBlock)block
 {
@@ -1442,6 +1518,7 @@ static KxSMBProvider *gSmbProvider;
     if (isDir) {
         
         [self createFolderAtPath:smbPath
+                            auth:auth
                            block:^(id result)
          {
              if ([result isKindOfClass:[KxSMBItemTree class]]) {
@@ -1463,15 +1540,18 @@ static KxSMBProvider *gSmbProvider;
         [KxSMBProvider copyLocalFile:localPath
                              smbPath:smbPath
                            overwrite:overwrite
+                                auth:auth
                             progress:progress
                                block:block];
     }
 }
 
-- (void) removeFolderAtPath:(NSString *) path
+- (void) removeFolderAtPath:(NSString *)path
+                       auth:(KxSMBAuth *)auth
                       block:(KxSMBBlock)block
 {
     [self fetchAtPath:path
+                 auth:auth
                 block:^(id result)
     {
         if ([result isKindOfClass:[NSArray class]]) {
@@ -1512,7 +1592,9 @@ static KxSMBProvider *gSmbProvider;
                              
                              if ([result isKindOfClass:[NSNumber class]]) {
                              
-                                 [[KxSMBProvider sharedSmbProvider] removeAtPath:path block:block];
+                                 [[KxSMBProvider sharedSmbProvider] removeAtPath:path
+                                                                            auth:auth
+                                                                           block:block];
                                  
                              } else {
                                  
@@ -1532,7 +1614,9 @@ static KxSMBProvider *gSmbProvider;
                     
                     if ([result isKindOfClass:[NSNumber class]]) {
                         
-                        [[KxSMBProvider sharedSmbProvider] removeAtPath:path block:block];
+                        [[KxSMBProvider sharedSmbProvider] removeAtPath:path
+                                                                   auth:auth
+                                                                  block:block];
                         
                     } else {
                         
@@ -1542,7 +1626,7 @@ static KxSMBProvider *gSmbProvider;
                 
             } else {
                 
-                [self removeAtPath:path block:block];
+                [self removeAtPath:path auth:auth block:block];
             }
             
         } else if ([result isKindOfClass:[KxSMBItemFile class]]) {
@@ -1558,6 +1642,7 @@ static KxSMBProvider *gSmbProvider;
 
 - (void) renameAtPath:(NSString *)oldPath
               newPath:(NSString *)newPath
+                 auth:(KxSMBAuth *)auth
                 block:(KxSMBBlock)block
 {
     NSParameterAssert(oldPath);
@@ -1566,11 +1651,139 @@ static KxSMBProvider *gSmbProvider;
     
     dispatch_async(_dispatchQueue, ^{
         
-        id result = [KxSMBProvider renameAtPath:oldPath newPath:newPath];
+        id result = [KxSMBProvider renameAtPath:oldPath newPath:newPath auth:auth];
         dispatch_async(dispatch_get_main_queue(), ^{
             block(result);
         });
     });
+}
+
+#pragma mark - compatible (without auth)
+
+// without auth (compatible)
+
+- (void) fetchAtPath:(NSString *)path
+               block:(KxSMBBlock)block
+{
+    [self fetchAtPath:path auth:nil block:block];
+}
+
+- (id) fetchAtPath:(NSString *)path
+{
+    return [self fetchAtPath:path auth:nil];
+}
+
+- (void) createFileAtPath:(NSString *)path
+                overwrite:(BOOL)overwrite
+                    block:(KxSMBBlock)block
+{
+    [self createFileAtPath:path
+                 overwrite:overwrite
+                      auth:nil
+                     block:block];
+}
+
+- (id) createFileAtPath:(NSString *)path
+              overwrite:(BOOL)overwrite
+{
+    return [self createFileAtPath:path overwrite:overwrite auth:nil];
+}
+
+- (void) createFolderAtPath:(NSString *)path
+                      block:(KxSMBBlock)block
+{
+    [self createFolderAtPath:path
+                        auth:nil
+                       block:block];
+}
+
+- (id) createFolderAtPath:(NSString *)path
+{
+    return [self createFolderAtPath:path auth:nil];
+}
+
+- (void) removeAtPath:(NSString *)path
+                block:(KxSMBBlock)block
+{
+    [self removeAtPath:path
+                  auth:nil
+                 block:block];
+}
+
+- (id) removeAtPath:(NSString *)path
+{
+    return [self removeAtPath:path auth:nil];
+}
+
+- (void) copySMBPath:(NSString *)smbPath
+           localPath:(NSString *)localPath
+           overwrite:(BOOL)overwrite
+               block:(KxSMBBlock)block
+{
+    [self copySMBPath:smbPath
+            localPath:localPath
+            overwrite:overwrite
+                 auth:nil
+                block:block];
+}
+
+- (void) copyLocalPath:(NSString *)localPath
+               smbPath:(NSString *)smbPath
+             overwrite:(BOOL)overwrite
+                 block:(KxSMBBlock)block
+{
+    [self copyLocalPath:localPath
+                smbPath:smbPath
+              overwrite:overwrite
+                   auth:nil
+                  block:block];
+}
+
+- (void) copySMBPath:(NSString *)smbPath
+           localPath:(NSString *)localPath
+           overwrite:(BOOL)overwrite
+            progress:(KxSMBBlockProgress)progress
+               block:(KxSMBBlock)block
+{
+    [self copySMBPath:smbPath
+            localPath:localPath
+            overwrite:overwrite
+                 auth:nil
+             progress:progress
+                block:block];
+}
+
+- (void) copyLocalPath:(NSString *)localPath
+               smbPath:(NSString *)smbPath
+             overwrite:(BOOL)overwrite
+              progress:(KxSMBBlockProgress)progress
+                 block:(KxSMBBlock)block
+{
+    [self copyLocalPath:localPath
+                smbPath:smbPath
+              overwrite:overwrite
+                   auth:nil
+               progress:progress
+                  block:block];
+}
+
+- (void) removeFolderAtPath:(NSString *)path
+                      block:(KxSMBBlock)block
+{
+    [self removeFolderAtPath:path
+                        auth:nil
+                       block:block];
+}
+
+- (void) renameAtPath:(NSString *)oldPath
+              newPath:(NSString *)newPath
+                block:(KxSMBBlock)block
+{
+    [self renameAtPath:oldPath
+               newPath:newPath
+                  auth:nil
+                 block:block];
+
 }
 
 #if 0
@@ -1601,19 +1814,19 @@ static KxSMBProvider *gSmbProvider;
 @end
 
 ///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
 
 @implementation KxSMBItemTree
 
-- (void) fetchItems: (KxSMBBlock) block
+- (void) fetchItems:(KxSMBBlock) block
 {
     NSParameterAssert(block);
     
     NSString *path = self.path;
+    KxSMBAuth *auth = self.auth;
     KxSMBProvider *provider = [KxSMBProvider sharedSmbProvider];
     [provider dispatchAsync: ^{
         
-        id result = [KxSMBProvider fetchTreeAtPath:path];
+        id result = [KxSMBProvider fetchTreeAtPath:path auth:auth];
         dispatch_async(dispatch_get_main_queue(), ^{
             block(result);
         });
@@ -1624,20 +1837,22 @@ static KxSMBProvider *gSmbProvider;
 {
     __block id result = nil;
     NSString *path = self.path;
+    KxSMBAuth *auth = self.auth;
     KxSMBProvider *provider = [KxSMBProvider sharedSmbProvider];
     [provider dispatchSync: ^{
-        
-        result = [KxSMBProvider fetchTreeAtPath:path];
+        result = [KxSMBProvider fetchTreeAtPath:path auth:auth];
     }];
     return result;
 }
 
-- (void) createFileWithName:(NSString *) name overwrite:(BOOL)overwrite block: (KxSMBBlock) block
+- (void) createFileWithName:(NSString *)name
+                  overwrite:(BOOL)overwrite
+                      block:(KxSMBBlock)block
 {
     NSParameterAssert(name.length);
     
     if (self.type != KxSMBItemTypeDir ||
-        self.type != KxSMBItemTypeFileShare )
+        self.type != KxSMBItemTypeFileShare)
     {
         block(mkKxSMBError(KxSMBErrorPathIsNotDir, nil));
         return;
@@ -1645,11 +1860,13 @@ static KxSMBProvider *gSmbProvider;
     
     [[KxSMBProvider sharedSmbProvider] createFileAtPath:[self.path stringByAppendingSMBPathComponent:name]
                                               overwrite:overwrite
+                                                   auth:self.auth
                                                   block:block];
 
 }
 
-- (id) createFileWithName:(NSString *) name overwrite:(BOOL)overwrite
+- (id) createFileWithName:(NSString *)name
+                overwrite:(BOOL)overwrite
 {
     NSParameterAssert(name.length);
     
@@ -1659,24 +1876,29 @@ static KxSMBProvider *gSmbProvider;
         return mkKxSMBError(KxSMBErrorPathIsNotDir, nil);
     }
     
-    return [[KxSMBProvider sharedSmbProvider] createFileAtPath:[self.path stringByAppendingSMBPathComponent:name]
-                                                     overwrite:overwrite];
+    NSString *path = [self.path stringByAppendingSMBPathComponent:name];
+    return [[KxSMBProvider sharedSmbProvider] createFileAtPath:path
+                                                     overwrite:overwrite
+                                                          auth:self.auth];
 }
 
-- (void) removeWithName: (NSString *) name block: (KxSMBBlock) block
+- (void) removeWithName:(NSString *)name
+                  block:(KxSMBBlock)block
 {
     if (self.type != KxSMBItemTypeDir ||
-        self.type != KxSMBItemTypeFileShare )
+        self.type != KxSMBItemTypeFileShare)
     {
         block(mkKxSMBError(KxSMBErrorPathIsNotDir, nil));
         return;
     }
     
-    [[KxSMBProvider sharedSmbProvider] removeAtPath:[self.path stringByAppendingSMBPathComponent:name]
+    NSString *path = [self.path stringByAppendingSMBPathComponent:name];
+    [[KxSMBProvider sharedSmbProvider] removeAtPath:path
+                                               auth:self.auth
                                               block:block];
 }
 
-- (id) removeWithName: (NSString *) name
+- (id) removeWithName:(NSString *)name
 {
     if (self.type != KxSMBItemTypeDir ||
         self.type != KxSMBItemTypeFileShare )
@@ -1684,12 +1906,13 @@ static KxSMBProvider *gSmbProvider;
         return mkKxSMBError(KxSMBErrorPathIsNotDir, nil);
     }
     
-    return [[KxSMBProvider sharedSmbProvider] removeAtPath:[self.path stringByAppendingSMBPathComponent:name]];
+    NSString *path = [self.path stringByAppendingSMBPathComponent:name];
+    return [[KxSMBProvider sharedSmbProvider] removeAtPath:path
+                                                      auth:self.auth];
 }
 
 @end
 
-///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 @interface KxSMBFileImpl : NSObject
@@ -1700,20 +1923,23 @@ static KxSMBProvider *gSmbProvider;
     SMBCCTX *_context;
     SMBCFILE *_file;
     NSString *_path;
+    KxSMBAuth *_auth;
 }
 
-- (id) initWithPath: (NSString *) path
+- (id) initWithPath:(NSString *)path
+               auth:(KxSMBAuth *)auth
 {
     self = [super init];
     if (self) {
         _path = path;
+        _auth = auth;
     }
     return self;
 }
 
 - (NSError *) openFile
 {
-    _context = [KxSMBProvider openSmbContext];
+    _context = [KxSMBProvider openSmbContext:_auth];
     if (!_context) {
         const int err = errno;
         return mkKxSMBError(errnoToSMBErr(err),
@@ -1738,7 +1964,7 @@ static KxSMBProvider *gSmbProvider;
 
 - (NSError *) createFile:(BOOL)overwrite
 {
-    _context = [KxSMBProvider openSmbContext];
+    _context = [KxSMBProvider openSmbContext:_auth];
     if (!_context) {
         const int err = errno;
         return mkKxSMBError(errnoToSMBErr(err),
@@ -1839,7 +2065,6 @@ static KxSMBProvider *gSmbProvider;
     }
     
     return md;
-
 }
 
 - (id)seekToFileOffset:(off_t)offset
@@ -1916,15 +2141,20 @@ static KxSMBProvider *gSmbProvider;
     }
 }
 
+- (KxSMBFileImpl *)theImpl
+{
+    if (!_impl) {
+        _impl = [[KxSMBFileImpl alloc] initWithPath:self.path auth:self.auth];
+    }
+    return _impl;
+}
+
 - (void)readDataOfLength:(NSUInteger)length
                    block:(KxSMBBlock)block
 {
     NSParameterAssert(block);
     
-    if (!_impl)
-        _impl = [[KxSMBFileImpl alloc] initWithPath:self.path];
-    
-    KxSMBFileImpl *p = _impl;
+    KxSMBFileImpl *p = self.theImpl;
     KxSMBProvider *provider = [KxSMBProvider sharedSmbProvider];
     [provider dispatchAsync:^{
         
@@ -1936,16 +2166,12 @@ static KxSMBProvider *gSmbProvider;
 }
 
 - (id)readDataOfLength:(NSUInteger)length
-{    
+{
     __block id result = nil;
     
-    if (!_impl)
-        _impl = [[KxSMBFileImpl alloc] initWithPath:self.path];
-    
-    KxSMBFileImpl *p = _impl;
+    KxSMBFileImpl *p = self.theImpl;
     KxSMBProvider *provider = [KxSMBProvider sharedSmbProvider];
     [provider dispatchSync:^{
-        
         result = [p readDataOfLength:length];
     }];
     return result;
@@ -1955,10 +2181,7 @@ static KxSMBProvider *gSmbProvider;
 {
     NSParameterAssert(block);
     
-    if (!_impl)
-        _impl = [[KxSMBFileImpl alloc] initWithPath:self.path];
-    
-    KxSMBFileImpl *p = _impl;
+    KxSMBFileImpl *p = self.theImpl;
     KxSMBProvider *provider = [KxSMBProvider sharedSmbProvider];
     [provider dispatchAsync:^{
         
@@ -1973,13 +2196,9 @@ static KxSMBProvider *gSmbProvider;
 {
     __block id result = nil;
     
-    if (!_impl)
-        _impl = [[KxSMBFileImpl alloc] initWithPath:self.path];
-    
-    KxSMBFileImpl *p = _impl;
+    KxSMBFileImpl *p = self.theImpl;
     KxSMBProvider *provider = [KxSMBProvider sharedSmbProvider];
     [provider dispatchSync:^{
-        
         result = [p readDataToEndOfFile];
     }];
     return result;
@@ -1991,10 +2210,7 @@ static KxSMBProvider *gSmbProvider;
 {
     NSParameterAssert(block);
     
-    if (!_impl)
-        _impl = [[KxSMBFileImpl alloc] initWithPath:self.path];
-    
-    KxSMBFileImpl *p = _impl;
+    KxSMBFileImpl *p = self.theImpl;
     KxSMBProvider *provider = [KxSMBProvider sharedSmbProvider];
     [provider dispatchAsync:^{
         
@@ -2010,26 +2226,20 @@ static KxSMBProvider *gSmbProvider;
 {
     __block id result = nil;
     
-    if (!_impl)
-        _impl = [[KxSMBFileImpl alloc] initWithPath:self.path];
-    
-    KxSMBFileImpl *p = _impl;
+    KxSMBFileImpl *p = self.theImpl;
     KxSMBProvider *provider = [KxSMBProvider sharedSmbProvider];
     [provider dispatchSync:^{
-        
         result = [p seekToFileOffset:offset whence:whence];
     }];
     return result;
 }
 
-- (void)writeData:(NSData *)data block:(KxSMBBlock) block
+- (void)writeData:(NSData *)data
+            block:(KxSMBBlock) block
 {
     NSParameterAssert(block);
     
-    if (!_impl)
-        _impl = [[KxSMBFileImpl alloc] initWithPath:self.path];
-    
-    KxSMBFileImpl *p = _impl;
+    KxSMBFileImpl *p = self.theImpl;
     KxSMBProvider *provider = [KxSMBProvider sharedSmbProvider];
     [provider dispatchAsync:^{
         
@@ -2044,13 +2254,9 @@ static KxSMBProvider *gSmbProvider;
 {
     __block id result = nil;
     
-    if (!_impl)
-        _impl = [[KxSMBFileImpl alloc] initWithPath:self.path];
-    
-    KxSMBFileImpl *p = _impl;
+    KxSMBFileImpl *p = self.theImpl;
     KxSMBProvider *provider = [KxSMBProvider sharedSmbProvider];
     [provider dispatchSync:^{
-        
         result = [p writeData:data];
     }];
     return result;
@@ -2061,14 +2267,11 @@ static KxSMBProvider *gSmbProvider;
 
 - (id) createFile:(BOOL)overwrite
 {
-    if (!_impl)
-        _impl = [[KxSMBFileImpl alloc] initWithPath:self.path];
-    return [_impl createFile:overwrite];
+    return [self.theImpl createFile:overwrite];
 }
 
 @end
 
-///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 static void my_smbc_get_auth_data_fn(const char *srv,
@@ -2088,26 +2291,76 @@ static void my_smbc_get_auth_data_fn(const char *srv,
                                     workgroup:[NSString stringWithUTF8String:workgroup]
                                      username:[NSString stringWithUTF8String:username]];
     }
-            
-    if (auth.username.length)
-        strncpy(username, auth.username.UTF8String, unlen - 1);
-    else
-        strncpy(username, "guest", unlen - 1);
     
-    if (auth.password.length)
-        strncpy(password, auth.password.UTF8String, pwlen - 1);
-    else
-        password[0] = 0;
+    if (username) {
+        if (auth.username.length) {
+            strncpy(username, auth.username.UTF8String, unlen - 1);
+        } else {
+            strncpy(username, "guest", unlen - 1);
+        }
+    }
     
-    if (auth.workgroup.length)
-        strncpy(workgroup, auth.workgroup.UTF8String, wglen - 1);
-    else
-        workgroup[0] = 0;
+    if (password) {
+        if (auth.password.length) {
+            strncpy(password, auth.password.UTF8String, pwlen - 1);
+        } else {
+            password[0] = 0;
+        }
+    }
+    
+    if (workgroup) {
+        if (auth.workgroup.length) {
+            strncpy(workgroup, auth.workgroup.UTF8String, wglen - 1);
+        } else {
+            workgroup[0] = 0;
+        }
+    }
     
     // NSLog(@"smb get auth for %s/%s -> %s/%s:%s", srv, shr, workgroup, username, password);
 }
 
-///////////////////////////////////////////////////////////////////////////////
+static void my_smbc_get_auth_data_with_context_fn(SMBCCTX *c,
+                                                  const char *srv,
+                                                  const char *shr,
+                                                  char *workgroup, int wglen,
+                                                  char *username, int unlen,
+                                                  char *password, int pwlen)
+{
+    void *userdata = smbc_getOptionUserData(c);
+    if (userdata) {
+        
+        KxSMBAuth *auth = (__bridge KxSMBAuth *)userdata;
+        
+        if (username) {
+            if (auth.username.length) {
+                strncpy(username, auth.username.UTF8String, unlen - 1);
+            } else {
+                strncpy(username, "guest", unlen - 1);
+            }
+        }
+        
+        if (password) {
+            if (auth.password.length) {
+                strncpy(password, auth.password.UTF8String, pwlen - 1);
+            } else {
+                password[0] = 0;
+            }
+        }
+        
+        if (workgroup) {
+            if (auth.workgroup.length) {
+                strncpy(workgroup, auth.workgroup.UTF8String, wglen - 1);
+            } else {
+                workgroup[0] = 0;
+            }
+        }
+        
+    } else {
+        
+        my_smbc_get_auth_data_fn(srv, shr, workgroup, wglen, userdata, unlen, password, pwlen);
+    }
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 @implementation NSString (KxSMB)

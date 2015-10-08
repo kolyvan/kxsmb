@@ -71,6 +71,7 @@ typedef enum {
 } KxSMBItemType;
 
 @class KxSMBItem;
+@class KxSMBAuth;
 
 typedef void (^KxSMBBlock)(id result);
 typedef void (^KxSMBBlockProgress)(KxSMBItem *item, long transferred, BOOL *stop);
@@ -87,33 +88,54 @@ typedef void (^KxSMBBlockProgress)(KxSMBItem *item, long transferred, BOOL *stop
 @property(readonly, nonatomic) KxSMBItemType type;
 @property(readonly, nonatomic, strong) NSString *path;
 @property(readonly, nonatomic, strong) KxSMBItemStat *stat;
+@property(readonly, nonatomic, strong) KxSMBAuth *auth;
 @end
 
 @class KxSMBItemFile;
 
 @interface KxSMBItemTree : KxSMBItem
-- (void) fetchItems: (KxSMBBlock) block;
+
+- (void) fetchItems:(KxSMBBlock)block;
+
 - (id) fetchItems;
-- (void) createFileWithName:(NSString *) name overwrite:(BOOL)overwrite block: (KxSMBBlock) block;
-- (id) createFileWithName:(NSString *) name overwrite:(BOOL)overwrite;
-- (void) removeWithName: (NSString *) name block: (KxSMBBlock) block;
-- (id) removeWithName: (NSString *) name;
+
+- (void) createFileWithName:(NSString *)name
+                  overwrite:(BOOL)overwrite
+                      block:(KxSMBBlock)block;
+
+- (id) createFileWithName:(NSString *)name
+                overwrite:(BOOL)overwrite;
+
+- (void) removeWithName:(NSString *)name
+                  block:(KxSMBBlock)block;
+
+- (id) removeWithName:(NSString *)name;
+
 @end
 
 @interface KxSMBItemFile : KxSMBItem
 
 - (void) close;
 
-- (void)readDataOfLength:(NSUInteger)length block:(KxSMBBlock) block;
+- (void)readDataOfLength:(NSUInteger)length
+                   block:(KxSMBBlock)block;
+
 - (id)readDataOfLength:(NSUInteger)length;
 
-- (void)readDataToEndOfFile:(KxSMBBlock) block;
+- (void)readDataToEndOfFile:(KxSMBBlock)block;
+
 - (id)readDataToEndOfFile;
 
-- (void)seekToFileOffset:(off_t)offset whence:(NSInteger)whence block:(KxSMBBlock) block;
-- (id)seekToFileOffset:(off_t)offset whence:(NSInteger)whence;
+- (void)seekToFileOffset:(off_t)offset
+                  whence:(NSInteger)whence
+                   block:(KxSMBBlock)block;
 
-- (void)writeData:(NSData *)data block:(KxSMBBlock) block;
+- (id)seekToFileOffset:(off_t)offset
+                whence:(NSInteger)whence;
+
+- (void)writeData:(NSData *)data
+            block:(KxSMBBlock)block;
+
 - (id)writeData:(NSData *)data;
 
 @end
@@ -123,13 +145,14 @@ typedef void (^KxSMBBlockProgress)(KxSMBItem *item, long transferred, BOOL *stop
 @property (readwrite, nonatomic, strong) NSString *username;
 @property (readwrite, nonatomic, strong) NSString *password;
 
-+ (id) smbAuthWorkgroup: (NSString *)workgroup
-               username: (NSString *)username
-               password: (NSString *)password;
++ (instancetype) smbAuthWorkgroup:(NSString *)workgroup
+                         username:(NSString *)username
+                         password:(NSString *)password;
 
 @end
 
 @protocol KxSMBProviderDelegate <NSObject>
+
 - (KxSMBAuth *) smbRequestAuthServer:(NSString *)server
                                share:(NSString *)share
                            workgroup:(NSString *)workgroup
@@ -183,17 +206,94 @@ typedef NS_ENUM(NSUInteger, KxSMBConfigEncryptLevel) {
 
 + (instancetype) sharedSmbProvider;
 
-- (void) fetchAtPath: (NSString *) path block: (KxSMBBlock) block;
-- (id) fetchAtPath: (NSString *) path;
+- (void) fetchAtPath:(NSString *)path
+                auth:(KxSMBAuth *)auth
+               block:(KxSMBBlock)block;
 
-- (void) createFileAtPath:(NSString *) path overwrite:(BOOL)overwrite block: (KxSMBBlock) block;
-- (id) createFileAtPath:(NSString *) path overwrite:(BOOL)overwrite;
+- (id) fetchAtPath:(NSString *)path
+              auth:(KxSMBAuth *)auth;
 
-- (void) createFolderAtPath:(NSString *) path block: (KxSMBBlock) block;
-- (id) createFolderAtPath:(NSString *) path;
+- (void) createFileAtPath:(NSString *)path
+                overwrite:(BOOL)overwrite
+                     auth:(KxSMBAuth *)auth
+                    block:(KxSMBBlock)block;
 
-- (void) removeAtPath: (NSString *) path block: (KxSMBBlock) block;
-- (id) removeAtPath: (NSString *) path;
+- (id) createFileAtPath:(NSString *)path
+              overwrite:(BOOL)overwrite
+                   auth:(KxSMBAuth *)auth;
+
+- (void) createFolderAtPath:(NSString *)path
+                       auth:(KxSMBAuth *)auth
+                      block:(KxSMBBlock)block;
+
+- (id) createFolderAtPath:(NSString *)path
+                     auth:(KxSMBAuth *)auth;
+
+- (void) removeAtPath:(NSString *)path
+                 auth:(KxSMBAuth *)auth
+                block:(KxSMBBlock)block;
+
+- (id) removeAtPath:(NSString *)path
+               auth:(KxSMBAuth *)auth;
+
+- (void) copySMBPath:(NSString *)smbPath
+           localPath:(NSString *)localPath
+           overwrite:(BOOL)overwrite
+                auth:(KxSMBAuth *)auth
+               block:(KxSMBBlock)block;
+
+- (void) copyLocalPath:(NSString *)localPath
+               smbPath:(NSString *)smbPath
+             overwrite:(BOOL)overwrite
+                  auth:(KxSMBAuth *)auth
+                 block:(KxSMBBlock)block;
+
+- (void) copySMBPath:(NSString *)smbPath
+           localPath:(NSString *)localPath
+           overwrite:(BOOL)overwrite
+                auth:(KxSMBAuth *)auth
+            progress:(KxSMBBlockProgress)progress
+               block:(KxSMBBlock)block;
+
+- (void) copyLocalPath:(NSString *)localPath
+               smbPath:(NSString *)smbPath
+             overwrite:(BOOL)overwrite
+                  auth:(KxSMBAuth *)auth
+              progress:(KxSMBBlockProgress)progress
+                 block:(KxSMBBlock)block;
+
+- (void) removeFolderAtPath:(NSString *)path
+                       auth:(KxSMBAuth *)auth
+                      block:(KxSMBBlock)block;
+
+- (void) renameAtPath:(NSString *)oldPath
+              newPath:(NSString *)newPath
+                 auth:(KxSMBAuth *)auth
+                block:(KxSMBBlock)block;
+
+// without auth (compatible)
+
+- (void) fetchAtPath:(NSString *)path
+               block:(KxSMBBlock)block;
+
+- (id) fetchAtPath:(NSString *)path;
+
+- (void) createFileAtPath:(NSString *)path
+                overwrite:(BOOL)overwrite
+                    block:(KxSMBBlock)block;
+
+- (id) createFileAtPath:(NSString *)path
+              overwrite:(BOOL)overwrite;
+
+- (void) createFolderAtPath:(NSString *)path
+                      block:(KxSMBBlock)block;
+
+- (id) createFolderAtPath:(NSString *)path;
+
+- (void) removeAtPath:(NSString *)path
+                block:(KxSMBBlock)block;
+
+- (id) removeAtPath:(NSString *)path;
 
 - (void) copySMBPath:(NSString *)smbPath
            localPath:(NSString *)localPath
@@ -217,7 +317,7 @@ typedef NS_ENUM(NSUInteger, KxSMBConfigEncryptLevel) {
               progress:(KxSMBBlockProgress)progress
                  block:(KxSMBBlock)block;
 
-- (void) removeFolderAtPath:(NSString *) path
+- (void) removeFolderAtPath:(NSString *)path
                       block:(KxSMBBlock)block;
 
 - (void) renameAtPath:(NSString *)oldPath

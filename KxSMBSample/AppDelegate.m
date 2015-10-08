@@ -51,6 +51,8 @@
 {   
     self.window = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
     _headVC = [[TreeViewController alloc] initAsHeadViewController];
+    //_headVC.defaultAuth = [KxSMBAuth smbAuthWorkgroup:@"" username:@"guest" password:@""];
+    
     self.window.rootViewController = [[UINavigationController alloc] initWithRootViewController:_headVC];
     [self.window makeKeyAndVisible];
     
@@ -58,7 +60,6 @@
     KxSMBProvider *provider = [KxSMBProvider sharedSmbProvider];
     provider.delegate = self;
     provider.config.browseMaxLmbCount = 0;
-    provider.config.debugLevel = 1;
     
     return YES;
 }

@@ -210,7 +210,16 @@ typedef NS_ENUM(NSUInteger, KxSMBConfigEncryptLevel) {
                 auth:(KxSMBAuth *)auth
                block:(KxSMBBlock)block;
 
+- (void) fetchAtPath:(NSString *)path
+           expandDir:(BOOL)expandDir
+                auth:(KxSMBAuth *)auth
+               block:(KxSMBBlock)block;
+
 - (id) fetchAtPath:(NSString *)path
+              auth:(KxSMBAuth *)auth;
+
+- (id) fetchAtPath:(NSString *)path
+         expandDir:(BOOL)expandDir
               auth:(KxSMBAuth *)auth;
 
 - (void) createFileAtPath:(NSString *)path

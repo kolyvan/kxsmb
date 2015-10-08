@@ -500,6 +500,7 @@ static KxSMBProvider *gSmbProvider;
 }
 
 + (id) fetchAtPath:(NSString *)path
+         expandDir:(BOOL)expandDir
               auth:(KxSMBAuth *)auth
 {
     NSParameterAssert(path);
@@ -542,7 +543,17 @@ static KxSMBProvider *gSmbProvider;
         
         if (S_ISDIR(stat.mode)) {
             
-            result =  [self fetchTreeAtPath:path auth:auth];
+            if (expandDir) {
+                
+                result = [self fetchTreeAtPath:path auth:auth];
+                
+            } else {
+                
+                result = [[KxSMBItemTree alloc] initWithType:KxSMBItemTypeDir
+                                                        path:path
+                                                        stat:stat
+                                                        auth:auth];
+            }
             
         } else if (S_ISREG(stat.mode)) {
             
@@ -1266,6 +1277,7 @@ static KxSMBProvider *gSmbProvider;
 #pragma mark - public methods
 
 - (void) fetchAtPath:(NSString *)path
+           expandDir:(BOOL)expandDir
                 auth:(KxSMBAuth *)auth
                block:(KxSMBBlock)block
 {
@@ -1275,6 +1287,7 @@ static KxSMBProvider *gSmbProvider;
     dispatch_async(_dispatchQueue, ^{
                 
         id result = [KxSMBProvider fetchAtPath:(path.length ? path : @"smb://")
+                                     expandDir:expandDir
                                           auth:auth];
         
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -1283,7 +1296,18 @@ static KxSMBProvider *gSmbProvider;
     });
 }
 
+- (void) fetchAtPath:(NSString *)path
+                auth:(KxSMBAuth *)auth
+               block:(KxSMBBlock)block
+{
+    [self fetchAtPath:path
+            expandDir:YES
+                 auth:auth
+                block:block];
+}
+
 - (id) fetchAtPath:(NSString *)path
+         expandDir:(BOOL)expandDir
               auth:(KxSMBAuth *)auth
 {
     NSParameterAssert(path);
@@ -1292,9 +1316,16 @@ static KxSMBProvider *gSmbProvider;
     dispatch_sync(_dispatchQueue, ^{
         
         result = [KxSMBProvider fetchAtPath:(path.length ? path : @"smb://")
+                                  expandDir:expandDir
                                        auth:auth];
     });
     return result;
+}
+
+- (id) fetchAtPath:(NSString *)path
+              auth:(KxSMBAuth *)auth
+{
+    return [self fetchAtPath:path expandDir:YES auth:auth];
 }
 
 - (void) createFileAtPath:(NSString *)path
@@ -1409,6 +1440,7 @@ static KxSMBProvider *gSmbProvider;
                block:(KxSMBBlock)block
 {   
     [self fetchAtPath:smbPath
+            expandDir:YES
                  auth:auth
                 block:^(id result) {
         
@@ -1551,6 +1583,7 @@ static KxSMBProvider *gSmbProvider;
                       block:(KxSMBBlock)block
 {
     [self fetchAtPath:path
+            expandDir:YES
                  auth:auth
                 block:^(id result)
     {
@@ -1665,12 +1698,12 @@ static KxSMBProvider *gSmbProvider;
 - (void) fetchAtPath:(NSString *)path
                block:(KxSMBBlock)block
 {
-    [self fetchAtPath:path auth:nil block:block];
+    [self fetchAtPath:path expandDir:YES auth:nil block:block];
 }
 
 - (id) fetchAtPath:(NSString *)path
 {
-    return [self fetchAtPath:path auth:nil];
+    return [self fetchAtPath:path expandDir:YES auth:nil];
 }
 
 - (void) createFileAtPath:(NSString *)path

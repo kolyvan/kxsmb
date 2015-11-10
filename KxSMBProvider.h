@@ -203,6 +203,7 @@ typedef NS_ENUM(NSUInteger, KxSMBConfigEncryptLevel) {
 
 @property (readwrite, nonatomic, weak) id<KxSMBProviderDelegate> delegate;
 @property (readwrite, nonatomic, strong, nonnull) KxSMBConfig *config;
+@property (readwrite, nonatomic, strong, nullable) dispatch_queue_t completionQueue;
 
 + (nullable instancetype) sharedSmbProvider;
 

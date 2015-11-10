@@ -296,6 +296,7 @@ static KxSMBProvider *gSmbProvider;
         
         _config = [KxSMBConfig new];
         _dispatchQueue  = dispatch_queue_create("KxSMBProvider", DISPATCH_QUEUE_SERIAL);
+        _completionQueue = dispatch_get_main_queue();
     }
     return self;
 }
@@ -1369,6 +1370,16 @@ static KxSMBProvider *gSmbProvider;
     return result;
 }
 
++ (void) fireBlock:(KxSMBBlock)block withResult:(id)result
+{
+    dispatch_queue_t queue = [KxSMBProvider sharedSmbProvider].completionQueue;
+    if (queue) {
+        dispatch_async(queue, ^{ block(result); });
+    } else {
+        block(result);
+    }
+}
+
 #pragma mark - internal methods
 
 - (void) dispatchSync: (dispatch_block_t) block
@@ -1390,16 +1401,13 @@ static KxSMBProvider *gSmbProvider;
 {
     NSParameterAssert(path);
     NSParameterAssert(block);
-    
+        
     dispatch_async(_dispatchQueue, ^{
                 
         id result = [KxSMBProvider fetchAtPath:(path.length ? path : @"smb://")
                                      expandDir:expandDir
                                           auth:auth];
-        
-        dispatch_async(dispatch_get_main_queue(), ^{
-            block(result);
-        });
+        [KxSMBProvider fireBlock:block withResult:result];
     });
 }
 
@@ -1446,9 +1454,7 @@ static KxSMBProvider *gSmbProvider;
     dispatch_async(_dispatchQueue, ^{
         
         id result = [KxSMBProvider createFileAtPath:path overwrite:overwrite auth:auth];
-        dispatch_async(dispatch_get_main_queue(), ^{
-            block(result);
-        });
+        [KxSMBProvider fireBlock:block withResult:result];
     });
 }
 
@@ -1475,9 +1481,7 @@ static KxSMBProvider *gSmbProvider;
     dispatch_async(_dispatchQueue, ^{
         
         id result = [KxSMBProvider removeAtPath:path auth:auth];
-        dispatch_async(dispatch_get_main_queue(), ^{
-            block(result);
-        });
+        [KxSMBProvider fireBlock:block withResult:result];
     });
 }
 
@@ -1503,9 +1507,7 @@ static KxSMBProvider *gSmbProvider;
     dispatch_async(_dispatchQueue, ^{
         
         id result = [KxSMBProvider createFolderAtPath:path auth:auth];
-        dispatch_async(dispatch_get_main_queue(), ^{
-            block(result);
-        });
+        [KxSMBProvider fireBlock:block withResult:result];
     });
 }
 
@@ -1807,9 +1809,7 @@ static KxSMBProvider *gSmbProvider;
     dispatch_async(_dispatchQueue, ^{
         
         id result = [KxSMBProvider renameAtPath:oldPath newPath:newPath auth:auth];
-        dispatch_async(dispatch_get_main_queue(), ^{
-            block(result);
-        });
+        [KxSMBProvider fireBlock:block withResult:result];
     });
 }
 
@@ -1982,9 +1982,7 @@ static KxSMBProvider *gSmbProvider;
     [provider dispatchAsync: ^{
         
         id result = [KxSMBProvider fetchTreeAtPath:path auth:auth];
-        dispatch_async(dispatch_get_main_queue(), ^{
-            block(result);
-        });
+        [KxSMBProvider fireBlock:block withResult:result];
     }];
 }
 
@@ -2314,9 +2312,7 @@ static KxSMBProvider *gSmbProvider;
     [provider dispatchAsync:^{
         
         id result = [p readDataOfLength:length];
-        dispatch_async(dispatch_get_main_queue(), ^{
-            block(result);
-        });
+        [KxSMBProvider fireBlock:block withResult:result];
     }];
 }
 
@@ -2341,9 +2337,7 @@ static KxSMBProvider *gSmbProvider;
     [provider dispatchAsync:^{
         
         id result = [p readDataToEndOfFile];
-        dispatch_async(dispatch_get_main_queue(), ^{
-            block(result);
-        });
+        [KxSMBProvider fireBlock:block withResult:result];
     }];
 }
 
@@ -2370,9 +2364,7 @@ static KxSMBProvider *gSmbProvider;
     [provider dispatchAsync:^{
         
         id result = [p seekToFileOffset:offset whence:whence];
-        dispatch_async(dispatch_get_main_queue(), ^{
-            block(result);
-        });
+        [KxSMBProvider fireBlock:block withResult:result];
     }];
 }
 
@@ -2399,9 +2391,7 @@ static KxSMBProvider *gSmbProvider;
     [provider dispatchAsync:^{
         
         id result = [p writeData:data];
-        dispatch_async(dispatch_get_main_queue(), ^{
-            block(result);
-        });
+        [KxSMBProvider fireBlock:block withResult:result];
     }];
 }
 

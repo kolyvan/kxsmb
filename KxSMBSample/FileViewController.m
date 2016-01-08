@@ -301,7 +301,7 @@
 - (void) download
 {    
     __weak __typeof(self) weakSelf = self;
-    [_smbFile readDataOfLength:32768
+    [_smbFile readDataOfLength:1024*1024
                          block:^(id result)
     {
         FileViewController *p = weakSelf;

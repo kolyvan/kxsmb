@@ -2158,8 +2158,13 @@ static KxSMBProvider *gSmbProvider;
         NSError *error = [self openFile];
         if (error) return error;        
     }
-        
-    Byte buffer[32768];
+    
+    // it seems 512 kb is an optimal buffer size
+    const size_t bufferSize = MIN(length, 512*1024);
+    Byte *buffer = malloc(bufferSize);
+    if (!buffer) {
+        return mkKxSMBError(KxSMBErrorOutOfMemory, nil);
+    }
     
     smbc_read_fn readFn = smbc_getFunctionRead(_context);
     NSMutableData *md = [NSMutableData data];
@@ -2167,7 +2172,7 @@ static KxSMBProvider *gSmbProvider;
     
     while (bytesToRead > 0) {
         
-        ssize_t r = readFn(_context, _file, buffer, MIN(bytesToRead, sizeof(buffer)));
+        ssize_t r = readFn(_context, _file, buffer, MIN(bytesToRead, bufferSize));
         
         if (r == 0)
             break;
@@ -2175,6 +2180,7 @@ static KxSMBProvider *gSmbProvider;
         if (r < 0) {
                         
             const int err = errno;
+            free(buffer);
             return mkKxSMBError(errnoToSMBErr(err),
                                 NSLocalizedString(@"Unable read file:%@ (errno:%d)", nil), _path, err);
         }
@@ -2182,7 +2188,8 @@ static KxSMBProvider *gSmbProvider;
         [md appendBytes:buffer length:r];
         bytesToRead -= r;
     }
-        
+    
+    free(buffer);
     return md;
 }
 
